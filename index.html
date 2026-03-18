@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 AdSense 收入分析工具 v1.0</title>
+<style>
+  :root {
+    --bg: #F0F2F5; --card: #FFF; --green: #34A853; --orange: #FBBC04; --red: #EA4335; --blue: #4285F4;
+    --text: #1a1a2e; --text2: #666; --border: #E8E8E8; --purple: #9C27B0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  .header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 50%, #40916c 100%); color: white; padding: 32px 0; }
+  .header .container { display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 28px; }
+  .header .subtitle { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 4px; }
+  .header .badge { background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  /* Config Card */
+  .config-card { background: var(--card); border-radius: 12px; padding: 24px; margin-top: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .config-card h2 { font-size: 16px; margin-bottom: 16px; }
+  .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .form-group { flex: 1; min-width: 200px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--green); outline: none; }
+  .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--green); color: white; }
+  .btn-primary:hover { background: #2d8f47; }
+  .btn-primary:disabled { background: #CCC; cursor: not-allowed; }
+  .btn-secondary { background: #F0F0F0; color: var(--text); }
+  .btn-secondary:hover { background: #E0E0E0; }
+
+  .status { font-size: 13px; color: var(--text2); margin-top: 8px; min-height: 20px; }
+  .step { padding: 12px 16px; background: #F8F9FA; border-radius: 8px; margin-bottom: 8px; font-size: 13px; line-height: 1.6; }
+  .step-num { display: inline-block; width: 22px; height: 22px; background: var(--green); color: white; border-radius: 50%; text-align: center; line-height: 22px; font-size: 12px; font-weight: 700; margin-right: 8px; }
+
+  /* KPI */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 24px; }
+  .kpi-card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+  .kpi-card .value { font-size: 28px; font-weight: 800; }
+  .kpi-card .label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .kpi-card .change { font-size: 12px; margin-top: 4px; }
+  .change-up { color: var(--green); }
+  .change-down { color: var(--red); }
+
+  /* Sections */
+  .section { margin-top: 28px; }
+  .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+  .card canvas { max-height: 320px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--border); font-weight: 600; color: var(--text2); }
+  td { padding: 10px 8px; border-bottom: 1px solid #F5F5F5; }
+  tr:hover td { background: #FAFBFF; }
+  .money { font-weight: 700; color: var(--green); }
+
+  .hidden { display: none; }
+
+  /* Alert */
+  .alert-panel { background: #FFF5F5; border: 1px solid #FFE0E0; border-radius: 12px; padding: 20px; margin-top: 24px; }
+  .alert-panel h3 { color: var(--red); margin-bottom: 12px; }
+  .alert-item { padding: 8px 0; border-bottom: 1px solid #FFE8E8; font-size: 13px; }
+  .alert-item:last-child { border-bottom: none; }
+
+  @media (max-width: 768px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="container">
+    <div>
+      <h1>📊 AdSense 收入分析</h1>
+      <div class="subtitle">Google AdSense Revenue Intelligence · <span id="versionNum">v1.3</span></div>
+    </div>
+    <div class="badge">🔄 自动刷新</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- OAuth Config -->
+  <div class="config-card" id="configCard">
+    <h2>🔐 API 配置</h2>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Client ID</label>
+        <input type="text" id="clientId" placeholder="在此粘贴 Client ID">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Client Secret</label>
+        <input type="password" id="clientSecret" placeholder="在此粘贴 Client Secret">
+      </div>
+    </div>
+    <div class="form-row">
+      <button class="btn btn-primary" onclick="startOAuth()">🔗 授权 Google 账号</button>
+      <button class="btn btn-secondary" onclick="usePlayground()">🎮 使用 OAuth Playground</button>
+      <button class="btn btn-secondary" onclick="loadToken()">📋 粘贴 Access Token</button>
+      <button class="btn btn-secondary" onclick="clearAuth()">🗑️ 清除缓存</button>
+      <button class="btn btn-secondary" onclick="testConnection()">🔌 测试连接</button>
+    </div>
+    <div class="status" id="authStatus">未授权</div>
+
+    <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:14px">🧩 Chrome 扩展（推荐，一劳永逸）</span>
+      </div>
+      <div id="extStatus" style="font-size:13px;margin-bottom:8px;color:#888">未检测到扩展</div>
+      <ol style="font-size:12px;color:#aaa;margin:0;padding-left:20px;line-height:1.8">
+        <li>下载扩展文件夹 <code>extension/</code>（或手动创建）</li>
+        <li>Chrome 打开 <code>chrome://extensions</code> → 开启「开发者模式」</li>
+        <li>点「加载已解压的扩展程序」→ 选择 extension 文件夹</li>
+        <li>刷新本页面，状态变为 ✅ 即可使用</li>
+      </ol>
+    </div>
+
+    <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:14px">🔗 API 代理（备选方案）</span>
+        <a href="https://workers.cloudflare.com/" target="_blank" style="font-size:12px;color:var(--accent)">部署方法</a>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="proxyUrl" placeholder="https://your-worker.workers.dev" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+        <button class="btn btn-secondary" onclick="saveProxy()" style="padding:8px 12px">保存</button>
+      </div>
+      <div style="font-size:11px;color:#666;margin-top:4px">留空则直连 googleapis.com（需要 CORS 支持）</div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+      <h2>📋 配置步骤</h2>
+      <div class="step"><span class="step-num">1</span>打开 <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> → 新建项目</div>
+      <div class="step"><span class="step-num">2</span>启用 <a href="https://console.cloud.google.com/apis/library/adsense.googleapis.com" target="_blank">AdSense Management API</a></div>
+      <div class="step"><span class="step-num">3</span>配置 OAuth 同意屏幕（外部），添加你的邮箱为测试用户</div>
+      <div class="step"><span class="step-num">4</span>创建 OAuth 客户端 ID（Web 应用），重定向 URI 填 <code>https://developers.google.com/oauthplayground</code></div>
+      <div class="step"><span class="step-num">5</span>复制 Client ID 和 Client Secret 到上方输入框</div>
+    </div>
+  </div>
+
+  <!-- Dashboard (hidden until auth) -->
+  <div id="dashboard" class="hidden">
+    <!-- KPI -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="value" id="kpiEarnings">-</div>
+        <div class="label">今日收入</div>
+        <div class="change" id="kpiEarningsChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiRPM">-</div>
+        <div class="label">RPM（千次浏览收入）</div>
+        <div class="change" id="kpiRPMChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiPageViews">-</div>
+        <div class="label">页面浏览量</div>
+        <div class="change" id="kpiPVChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiClicks">-</div>
+        <div class="label">点击次数</div>
+        <div class="change" id="kpiClicksChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiCTR">-</div>
+        <div class="label">点击率</div>
+        <div class="change" id="kpiCTRChange">-</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="config-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label>📊 账号</label>
+          <select id="accountSelect" onchange="onAccountChange()"><option>加载中...</option></select>
+        </div>
+        <div class="form-group">
+          <label>📅 时间范围</label>
+          <select id="dateRange">
+            <option value="today">今天</option>
+            <option value="yesterday" selected>昨天</option>
+            <option value="last7">近7天</option>
+            <option value="last30">近30天</option>
+            <option value="last90">近90天</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="fetchData()">🔄 刷新数据</button>
+        </div>
+      </div>
+      <div class="status" id="dataStatus"></div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alert-panel hidden" id="alertPanel">
+      <h3>⚠️ 异常告警</h3>
+      <div id="alertList"></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="section">
+      <div class="section-title"><span>📈</span> 收入趋势</div>
+      <div class="card">
+        <canvas id="revenueChart" style="max-height:350px;"></canvas>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>🌍</span> 国家/地区分析</div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>收入 Top 10 国家</h3>
+          <canvas id="countryChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>国家明细表</h3>
+          <div style="max-height:350px;overflow-y:auto;">
+            <table id="countryTable">
+              <thead><tr><th>国家</th><th>收入</th><th>浏览</th><th>RPM</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>📱</span> 平台分析</div>
+      <div class="card">
+        <canvas id="platformChart" style="max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="section">
+      <div class="section-title"><span>📋</span> 每日明细</div>
+      <div class="card" style="padding:16px;">
+        <table id="dailyTable">
+          <thead><tr><th>日期</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>展示</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:12px;">
+  Generated by 可乐 🦞 · AdSense Revenue Intelligence · 2026-03-18
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+// ===== CONFIG =====
+const AUTH_KEY = 'adsense_auth';
+const DATA_KEY = 'adsense_data';
+
+let accessToken = null;
+let accounts = [];
+let charts = {};
+let proxyUrl = localStorage.getItem('adsense_proxy') || '';
+
+// ===== Proxy Config =====
+function saveProxy() {
+  const url = document.getElementById('proxyUrl')?.value?.trim() || '';
+  proxyUrl = url;
+  localStorage.setItem('adsense_proxy', url);
+}
+
+function loadProxy() {
+  const saved = localStorage.getItem('adsense_proxy') || '';
+  proxyUrl = saved;
+  const el = document.getElementById('proxyUrl');
+  if (el) el.value = saved;
+}
+
+function apiUrl(targetUrl) {
+  // Chrome extension proxy (highest priority)
+  if (window.__adsenseExtension__?.available) return targetUrl;
+  // Cloudflare Worker proxy
+  if (proxyUrl) return proxyUrl + '/' + targetUrl;
+  return targetUrl;
+}
+
+// Check for Chrome extension
+function checkExtension() {
+  if (window.__adsenseExtension__?.available) {
+    console.log('[AdSense] Chrome 扩展已检测到，CORS 代理已激活');
+    const el = document.getElementById('extStatus');
+    if (el) el.innerHTML = '✅ Chrome 扩展已连接（CORS 已解决）';
+    return true;
+  }
+  return false;
+}
+
+// Also listen for postMessage from extension
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'ADSENSE_EXT_LOADED') {
+    console.log('[AdSense] 扩展加载信号收到:', e.data);
+    setTimeout(checkExtension, 100);
+  }
+});
+
+// ===== AUTH =====
+function saveAuth(data) {
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  if (data.accessToken) c.accessToken = data.accessToken;
+  if (data.refreshToken) c.refreshToken = data.refreshToken;
+  if (data.tokenExpiry) c.tokenExpiry = data.tokenExpiry;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+}
+
+function loadConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(AUTH_KEY));
+    if (c) {
+      document.getElementById('clientId').value = c.clientId || '';
+      document.getElementById('clientSecret').value = c.clientSecret || '';
+      if (c.accessToken) {
+        accessToken = c.accessToken;
+        console.log('[AdSense] Token loaded:', accessToken.substring(0, 20) + '...');
+        if (c.tokenExpiry && Date.now() > c.tokenExpiry && c.refreshToken) {
+          refreshToken(c);
+        } else {
+          onAuthSuccess();
+        }
+      } else {
+        console.log('[AdSense] No token found in config');
+      }
+    } else {
+      console.log('[AdSense] No saved config');
+    }
+  } catch(e) { console.error('[AdSense] loadConfig error:', e); }
+}
+
+async function refreshToken(c) {
+  const clientId = c.clientId || document.getElementById('clientId').value;
+  const clientSecret = c.clientSecret || document.getElementById('clientSecret').value;
+  if (!c.refreshToken || !clientId) return;
+
+  document.getElementById('authStatus').textContent = '正在刷新 Token...';
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId, client_secret: clientSecret,
+        refresh_token: c.refreshToken, grant_type: 'refresh_token',
+      })
+    }).catch(e => { throw new Error('网络错误：无法连接 oauth2.googleapis.com，可能需要开启 VPN/代理。'); });
+    const data = await resp.json();
+    if (data.access_token) {
+      accessToken = data.access_token;
+      saveAuth({ accessToken: data.access_token, tokenExpiry: Date.now() + (data.expires_in || 3600) * 1000 });
+      onAuthSuccess();
+    } else {
+      document.getElementById('authStatus').innerHTML = '⚠️ Token 已过期，请重新授权';
+    }
+  } catch(e) {
+    document.getElementById('authStatus').textContent = '❌ 刷新 Token 失败: ' + e.message;
+  }
+}
+
+function startOAuth() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const clientSecret = document.getElementById('clientSecret').value.trim();
+  if (!clientId || !clientSecret) { alert('请先填写 Client ID 和 Client Secret'); return; }
+  saveConfig();
+
+  const scope = 'https://www.googleapis.com/auth/adsense.readonly';
+  const redirectUri = window.location.origin + window.location.pathname;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
+  // Store for callback
+  sessionStorage.setItem('adsense_oauth_state', JSON.stringify({ clientId, clientSecret, redirectUri }));
+  window.location.href = url;
+}
+
+function usePlayground() {
+  const url = 'https://developers.google.com/oauthplayground/#step1&scopes=https://www.googleapis.com/auth/adsense.readonly';
+  window.open(url, '_blank');
+  setTimeout(() => {
+    const input = prompt('在 OAuth Playground 完成授权后，复制完整响应（包含 refresh_token）粘贴到这里：\n\n提示：点「Response」旁边的复制按钮，或只复制 access_token 也行。');
+    if (input) {
+      try {
+        const json = JSON.parse(input);
+        if (json.access_token) { setAccessToken(json.access_token, json.refresh_token, json.expires_in); return; }
+      } catch(e) {}
+      setAccessToken(input.trim());
+    }
+  }, 500);
+}
+
+function loadToken() {
+  const input = prompt('粘贴 Access Token，或粘贴完整的 OAuth JSON 响应：');
+  if (!input || !input.trim()) return;
+  const trimmed = input.trim();
+  try {
+    const json = JSON.parse(trimmed);
+    if (json.access_token) { setAccessToken(json.access_token, json.refresh_token, json.expires_in); return; }
+  } catch(e) {}
+  setAccessToken(trimmed);
+}
+
+function clearAuth() {
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem('adsense_data');
+  accessToken = null;
+  accounts = [];
+  document.getElementById('authStatus').textContent = '已清除，请重新授权';
+  document.getElementById('dataStatus').textContent = '';
+  document.getElementById('accountSelect').innerHTML = '';
+  alert('已清除所有缓存数据，请刷新页面重新授权。');
+}
+
+async function testConnection() {
+  if (!accessToken) { alert('请先粘贴 Access Token！'); return; }
+  document.getElementById('dataStatus').textContent = '🔌 正在测试连接 googleapis.com ...';
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(apiUrl('https://adsense.googleapis.com/v2/accounts'), {
+      headers: { 'Authorization': 'Bearer ' + accessToken },
+      signal: ctrl.signal,
+    });
+    const text = await resp.text();
+    document.getElementById('dataStatus').innerHTML = `✅ 连接成功！HTTP ${resp.status}<br><pre style="max-height:100px;overflow:auto;background:#111;padding:8px;border-radius:4px">${text.substring(0, 300)}</pre>`;
+  } catch(e) {
+    document.getElementById('dataStatus').innerHTML = `❌ 连接失败: ${e.name} — ${e.message}<br><small>请确认：1) VPN 全局模式 2) 能打开 <a href="https://adsense.googleapis.com/$discovery/rest?version=v2" target="_blank" style="color:#4ecdc4">这个链接</a></small>`;
+  }
+}
+
+function setAccessToken(token, refreshToken, expiresIn) {
+  accessToken = token;
+  saveAuth({
+    accessToken: token,
+    refreshToken: refreshToken,
+    tokenExpiry: expiresIn ? Date.now() + expiresIn * 1000 : null,
+  });
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  c.clientId = document.getElementById('clientId').value;
+  c.clientSecret = document.getElementById('clientSecret').value;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  onAuthSuccess();
+}
+
+function onAuthSuccess() {
+  document.getElementById('authStatus').innerHTML = '✅ 已授权';
+  document.getElementById('authStatus').style.color = '#34A853';
+  document.getElementById('dashboard').classList.remove('hidden');
+  loadAccounts();
+}
+
+// Handle OAuth callback
+(function checkOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    // Exchange code for token
+    const state = JSON.parse(sessionStorage.getItem('adsense_oauth_state') || '{}');
+    if (state.clientId) {
+      exchangeCode(code, state);
+    }
+  }
+})();
+
+async function exchangeCode(code, state) {
+  document.getElementById('authStatus').textContent = '正在交换 Token...';
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code, client_id: state.clientId, client_secret: state.clientSecret,
+        redirect_uri: state.redirectUri, grant_type: 'authorization_code',
+      })
+    });
+    const data = await resp.json();
+    if (data.access_token) {
+      setAccessToken(data.access_token, data.refresh_token, data.expires_in);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      document.getElementById('authStatus').textContent = '❌ 授权失败: ' + (data.error_description || data.error);
+    }
+  } catch(e) {
+    document.getElementById('authStatus').textContent = '❌ 授权失败: ' + e.message;
+  }
+}
+
+// ===== API =====
+async function apiGet(url) {
+  let resp;
+  try {
+    console.log('[AdSense] GET', url);
+    resp = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    console.log('[AdSense] Response:', resp.status, resp.statusText);
+  } catch(e) {
+    console.error('[AdSense] Fetch error:', e);
+    throw new Error('网络错误：' + e.message);
+  }
+  if (!resp.ok) {
+    let errMsg = '';
+    try { const err = await resp.json(); errMsg = err.error?.message || JSON.stringify(err.error); } catch(_) {}
+    console.error('[AdSense] API error:', resp.status, errMsg);
+    if (resp.status === 401) throw new Error('Token 已过期，请重新粘贴 Access Token。');
+    throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+  }
+  return resp.json();
+}
+
+async function loadAccounts() {
+  document.getElementById('dataStatus').textContent = '正在加载账号...';
+  try {
+    const data = await apiGet(apiUrl('https://adsense.googleapis.com/v2/accounts'));
+    accounts = data.accounts || [];
+    const sel = document.getElementById('accountSelect');
+    sel.innerHTML = accounts.map(a => `<option value="${a.name}">${a.displayName || a.name}</option>`).join('');
+    document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
+    if (accounts.length > 0) fetchData();
+  } catch(e) {
+    document.getElementById('dataStatus').textContent = '❌ ' + e.message;
+  }
+}
+
+async function apiPost(url, body) {
+  // Auto-refresh if token might be expired
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  if (c.tokenExpiry && Date.now() > c.tokenExpiry - 60000 && c.refreshToken) {
+    await refreshToken(c);
+  }
+  let resp;
+  try {
+    console.log('[AdSense] POST', url, 'token:', accessToken?.substring(0, 20) + '...');
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    console.log('[AdSense] Response:', resp.status, resp.statusText, 'URL:', url);
+  } catch(e) {
+    console.error('[AdSense] Fetch error:', e.name, e.message);
+    throw new Error('网络错误：' + e.message + '（URL: ' + url + '）');
+  }
+  if (!resp.ok) {
+    const rawText = await resp.text().catch(() => '');
+    console.error('[AdSense] Error body:', rawText.substring(0, 500));
+    let errMsg = '';
+    try { const err = JSON.parse(rawText); errMsg = err.error?.message || JSON.stringify(err.error); } catch(_) { errMsg = rawText.substring(0, 200); }
+    console.error('[AdSense] API error:', resp.status, errMsg);
+    if (resp.status === 401) throw new Error('Token 已过期或无效，请重新粘贴 Access Token。错误: ' + errMsg);
+    if (resp.status === 403) throw new Error('权限不足（403），请确认 AdSense 账号已开通 API 访问。错误: ' + errMsg);
+    throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+  }
+  return resp.json();
+}
+
+function getDateRange() {
+  const range = document.getElementById('dateRange').value;
+  const today = new Date();
+  const end = new Date(today);
+  end.setDate(end.getDate() - 1); // yesterday (AdSense data has 1-day delay)
+  const start = new Date(end);
+
+  switch(range) {
+    case 'today': start.setDate(end.getDate()); break;
+    case 'yesterday': start.setDate(end.getDate()); break;
+    case 'last7': start.setDate(end.getDate() - 6); break;
+    case 'last30': start.setDate(end.getDate() - 29); break;
+    case 'last90': start.setDate(end.getDate() - 89); break;
+  }
+  return {
+    startDate: { year: start.getFullYear(), month: start.getMonth() + 1, day: start.getDate() },
+    endDate: { year: end.getFullYear(), month: end.getMonth() + 1, day: end.getDate() },
+    range,
+    label: `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')} ~ ${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`
+  };
+}
+
+async function fetchData() {
+  let account = document.getElementById('accountSelect').value;
+  if (!account) return;
+  const { startDate, endDate, range, label } = getDateRange();
+  document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
+  const reportUrl = apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate`);
+  console.log('[AdSense] Account value:', account, 'URL will be:', reportUrl);
+
+  try {
+    // Build report request body
+    function buildBody(metrics, dimensions) {
+      return {
+        dateRange: 'CUSTOM',
+        startDate, endDate,
+        metrics, dimensions,
+      };
+    }
+
+    // Fetch daily report
+    const dailyBody = buildBody(
+      ['EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS', 'PAGE_VIEWS_CTR', 'PAGE_VIEWS_RPM'],
+      ['DATE']
+    );
+    const data = await apiPost(reportUrl, dailyBody);
+    const rows = data.rows || [];
+
+    // Fetch by country
+    const countryBody = buildBody(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE']);
+    const countryData = await apiPost(reportUrl, countryBody).catch(() => ({rows:[]}));
+
+    // Fetch by platform
+    const platBody = buildBody(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM']);
+    const platData = await apiPost(reportUrl, platBody).catch(() => ({rows:[]}));
+
+    const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], startDate, endDate, fetchedAt: Date.now() };
+    localStorage.setItem(DATA_KEY, JSON.stringify(result));
+
+    renderDashboard(result);
+    document.getElementById('dataStatus').textContent = `✅ 数据已更新 (${startDate} ~ ${endDate})`;
+
+  } catch(e) {
+    document.getElementById('dataStatus').textContent = '❌ ' + e.message;
+  }
+}
+
+// ===== RENDER =====
+function parseRow(row) {
+  // AdSense API v2: cells array has [dimensions..., metrics...]
+  const cells = row.cells || [];
+  return {
+    date: cells[0]?.value,
+    earnings: parseFloat(cells[1]?.value || 0),
+    pageViews: parseInt(cells[2]?.value || 0),
+    clicks: parseInt(cells[3]?.value || 0),
+    impressions: parseInt(cells[4]?.value || 0),
+    ctr: parseFloat(cells[5]?.value || 0) * 100, // API returns as decimal
+    rpm: parseFloat(cells[6]?.value || 0),
+  };
+}
+
+function parseCountryRow(row) {
+  const cells = row.cells || [];
+  return {
+    code: cells[0]?.value,
+    earnings: parseFloat(cells[1]?.value || 0),
+    pageViews: parseInt(cells[2]?.value || 0),
+    rpm: parseFloat(cells[3]?.value || 0),
+  };
+}
+
+function parsePlatRow(row) {
+  const cells = row.cells || [];
+  return {
+    platform: cells[0]?.value || 'Unknown',
+    earnings: parseFloat(cells[1]?.value || 0),
+    pageViews: parseInt(cells[2]?.value || 0),
+  };
+}
+
+function renderDashboard(result) {
+  const rows = result.daily.map(parseRow);
+  if (rows.length === 0) { document.getElementById('dataStatus').textContent = '无数据'; return; }
+
+  // KPIs - use latest day
+  const latest = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+
+  document.getElementById('kpiEarnings').textContent = '$' + latest.earnings.toFixed(2);
+  document.getElementById('kpiRPM').textContent = '$' + latest.rpm.toFixed(2);
+  document.getElementById('kpiPageViews').textContent = latest.pageViews.toLocaleString();
+  document.getElementById('kpiClicks').textContent = latest.clicks.toLocaleString();
+  document.getElementById('kpiCTR').textContent = latest.ctr.toFixed(2) + '%';
+
+  if (prev) {
+    setChange('kpiEarningsChange', latest.earnings, prev.earnings, '$');
+    setChange('kpiRPMChange', latest.rpm, prev.rpm, '$');
+    setChange('kpiPVChange', latest.pageViews, prev.pageViews);
+    setChange('kpiClicksChange', latest.clicks, prev.clicks);
+    setChange('kpiCTRChange', latest.ctr, prev.ctr, '', '%');
+  }
+
+  // Revenue Trend Chart
+  if (charts.revenue) charts.revenue.destroy();
+  charts.revenue = new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+      labels: rows.map(r => r.date?.slice(5)),
+      datasets: [
+        { label: '收入 ($)', data: rows.map(r => r.earnings), borderColor: '#34A853', backgroundColor: 'rgba(52,168,83,0.1)', fill: true, tension: 0.3, yAxisID: 'y' },
+        { label: 'RPM ($)', data: rows.map(r => r.rpm), borderColor: '#4285F4', borderDash: [5,5], fill: false, tension: 0.3, yAxisID: 'y1' },
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { position: 'left', title: { display: true, text: '收入 ($)' } },
+        y1: { position: 'right', title: { display: true, text: 'RPM ($)' }, grid: { drawOnChartArea: false } },
+      }
+    }
+  });
+
+  // Country Chart
+  const countryRows = result.country.map(parseCountryRow).sort((a,b) => b.earnings - a.earnings).slice(0, 10);
+
+  if (charts.country) charts.country.destroy();
+  charts.country = new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: {
+      labels: countryRows.map(r => r.code),
+      datasets: [{ label: '收入 ($)', data: countryRows.map(r => r.earnings), backgroundColor: '#34A853', borderRadius: 4 }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+
+  // Country Table
+  const ctbody = document.querySelector('#countryTable tbody');
+  ctbody.innerHTML = countryRows.map(r =>
+    `<tr><td>${r.code}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>$${r.rpm.toFixed(2)}</td></tr>`
+  ).join('');
+
+  // Platform Chart
+  const platRows = result.platform.map(parsePlatRow);
+
+  if (charts.platform) charts.platform.destroy();
+  charts.platform = new Chart(document.getElementById('platformChart'), {
+    type: 'doughnut',
+    data: {
+      labels: platRows.map(r => r.platform),
+      datasets: [{ data: platRows.map(r => r.earnings), backgroundColor: ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Daily Table
+  const dtbody = document.querySelector('#dailyTable tbody');
+  dtbody.innerHTML = rows.slice().reverse().map(r =>
+    `<tr><td>${r.date}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>${r.clicks.toLocaleString()}</td><td>${r.ctr.toFixed(2)}%</td><td>$${r.rpm.toFixed(2)}</td><td>${r.impressions.toLocaleString()}</td></tr>`
+  ).join('');
+
+  // Anomaly Detection
+  detectAnomalies(rows);
+}
+
+function setChange(id, current, prev, prefix='', suffix='') {
+  if (!prev) { document.getElementById(id).textContent = '-'; return; }
+  const pct = ((current - prev) / Math.max(prev, 0.001) * 100).toFixed(1);
+  const el = document.getElementById(id);
+  const isUp = current >= prev;
+  el.textContent = `${isUp ? '↑' : '↓'} ${prefix}${Math.abs(current - prev).toFixed ? Math.abs(current - prev).toFixed(2) : Math.abs(current - prev)}${suffix} (${pct}%)`;
+  el.className = 'change ' + (isUp ? 'change-up' : 'change-down');
+}
+
+function detectAnomalies(rows) {
+  if (rows.length < 3) return;
+  const alerts = [];
+  const latest = rows[rows.length - 1];
+  const avg7 = rows.slice(-7);
+  const avgEarnings = avg7.reduce((s,r) => s + r.earnings, 0) / avg7.length;
+  const avgRPM = avg7.reduce((s,r) => s + r.rpm, 0) / avg7.length;
+  const avgPV = avg7.reduce((s,r) => s + r.pageViews, 0) / avg7.length;
+
+  // Earnings drop > 20%
+  if (latest.earnings < avgEarnings * 0.8) {
+    const drop = ((avgEarnings - latest.earnings) / avgEarnings * 100).toFixed(0);
+    alerts.push(`🔴 收入下降 ${drop}%：今日 $${latest.earnings.toFixed(2)} vs 近期均值 $${avgEarnings.toFixed(2)}`);
+  }
+  // RPM drop > 15%
+  if (latest.rpm < avgRPM * 0.85) {
+    const drop = ((avgRPM - latest.rpm) / avgRPM * 100).toFixed(0);
+    alerts.push(`🟠 RPM 下降 ${drop}%：今日 $${latest.rpm.toFixed(2)} vs 均值 $${avgRPM.toFixed(2)}`);
+  }
+  // Page views drop > 25%
+  if (latest.pageViews < avgPV * 0.75) {
+    const drop = ((avgPV - latest.pageViews) / avgPV * 100).toFixed(0);
+    alerts.push(`🟠 流量下降 ${drop}%：今日 ${latest.pageViews} vs 均值 ${avgPV.toFixed(0)}`);
+  }
+
+  const panel = document.getElementById('alertPanel');
+  const list = document.getElementById('alertList');
+  if (alerts.length > 0) {
+    panel.classList.remove('hidden');
+    list.innerHTML = alerts.map(a => `<div class="alert-item">${a}</div>`).join('');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+// Init
+loadProxy();
+loadConfig();
+
+// Check for Chrome extension after a short delay (content script loads async)
+setTimeout(checkExtension, 500);
+setTimeout(checkExtension, 2000);
+</script>
+</body>
+</html>

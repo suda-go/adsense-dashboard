@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>网络诊断</title>
+<style>body{font-family:monospace;padding:20px;background:#1a1a2e;color:#eee}
+.r{padding:8px 12px;margin:4px;border-radius:6px}
+.ok{background:#1a472a}.fail{background:#4a1a1a}.pending{background:#3a3a1a}
+h2{color:#4ecdc4}</style></head>
+<body>
+<h2>🔍 Google API 连通性诊断</h2>
+<div id="results"></div>
+<script>
+const targets = [
+  { name: 'googleapis.com', url: 'https://www.googleapis.com/oauth2/v1/certs' },
+  { name: 'adsense.googleapis.com', url: 'https://adsense.googleapis.com/$discovery/rest?version=v2' },
+  { name: 'oauth2.googleapis.com', url: 'https://oauth2.googleapis.com/revoke?x=test' },
+  { name: 'accounts.google.com', url: 'https://accounts.google.com/.well-known/openid-configuration' },
+];
+const el = document.getElementById('results');
+
+async function test(t) {
+  const div = document.createElement('div');
+  div.className = 'r pending';
+  div.textContent = `⏳ ${t.name}...`;
+  el.appendChild(div);
+  
+  const start = Date.now();
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const resp = await fetch(t.url, { mode: 'no-cors', signal: ctrl.signal });
+    clearTimeout(timer);
+    const ms = Date.now() - start;
+    div.className = 'r ok';
+    div.textContent = `✅ ${t.name} — ${ms}ms (可达)`;
+  } catch(e) {
+    const ms = Date.now() - start;
+    div.className = 'r fail';
+    div.textContent = `❌ ${t.name} — ${ms}ms — ${e.name === 'AbortError' ? '超时' : e.message}`;
+  }
+}
+
+(async () => {
+  for (const t of targets) await test(t);
+})();
+</script>
+</body></html>
