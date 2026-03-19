@@ -547,7 +547,8 @@ async function loadAccounts() {
     const pubId = document.getElementById('pubId')?.value?.trim();
     if (pubId) {
       try {
-        const data = await apiGet(apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${pubId}`));
+        const bareId = pubId.replace(/^pub-/, '');
+        const data = await apiGet(apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${bareId}`));
         accounts = [data];
         const sel = document.getElementById('accountSelect');
         sel.innerHTML = `<option value="${data.id || data.name}">${data.name || data.displayName || data.id}</option>`;
@@ -620,6 +621,8 @@ function getDateRange() {
 async function fetchData() {
   let account = document.getElementById('accountSelect').value;
   if (!account) return;
+  // Strip pub- prefix for v1.4 API
+  const bareAccount = account.replace(/^accounts\//, '').replace(/^pub-/, '');
   const { startDate, endDate, range, label } = getDateRange();
   document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
 
@@ -634,7 +637,7 @@ async function fetchData() {
     params.set('endDate.day', endDate.day);
     metrics.forEach(m => params.append('metric', m));
     dimensions.forEach(d => params.append('dimension', d));
-    return apiUrl(`https://www.googleapis.com/adsense/v1.4/${account}/reports?${params.toString()}`);
+    return apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${bareAccount}/reports?${params.toString()}`);
   }
 
   console.log('[AdSense] Account:', account);
