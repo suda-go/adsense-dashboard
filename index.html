@@ -279,7 +279,7 @@
         <canvas id="domainChart" height="200"></canvas>
         <div style="margin-top:16px;overflow-x:auto">
           <table id="domainTable">
-            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>趋势</th></tr></thead>
+            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>14天趋势</th><th>变化</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1084,6 +1084,15 @@ function renderDomainAnalysis(result) {
     options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } } } }
   });
 
+  // Sparkline trend for each domain
+  const domainDailyMap = {};
+  dailyDomainRows.forEach(r => {
+    if (!domainDailyMap[r.hostname]) domainDailyMap[r.hostname] = {};
+    domainDailyMap[r.hostname][r.date] = r.earnings;
+  });
+  const allDates = [...new Set(dailyDomainRows.map(r => r.date))].sort();
+  const recentDates = allDates.slice(-14); // last 14 days
+
   // Domain Table with comparison
   const dailyDomainRows = (result.dailyDomain || []).map(row => {
     const cells = row.cells || [];
@@ -1127,14 +1136,25 @@ function renderDomainAnalysis(result) {
       }
     }
     
+    // Build sparkline
+    const dayMap = domainDailyMap[r.hostname] || {};
+    const maxDay = Math.max(...recentDates.map(d => dayMap[d] || 0), 0.01);
+    const sparkBars = recentDates.map(d => {
+      const val = dayMap[d] || 0;
+      const h = Math.max(2, (val / maxDay) * 18);
+      const color = val > 0 ? '#34A853' : '#333';
+      return `<div style="display:inline-block;width:4px;height:${h}px;background:${color};margin:0 0.5px;vertical-align:bottom;border-radius:1px" title="${d}: $${val.toFixed(2)}"></div>`;
+    }).join('');
+    
     return `<tr>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname}</td>
       <td class="money">$${r.earnings.toFixed(2)}</td>
       <td>${pct}%</td>
       <td>${r.pageViews.toLocaleString()} <small style="color:#666">(${pvPct}%)</small></td>
       <td>${r.clicks.toLocaleString()}</td>
       <td>${ctr}%</td>
       <td>$${rpm}</td>
+      <td><div style="display:flex;align-items:flex-end;height:20px">${sparkBars}</div></td>
       <td>${trendStr}</td>
     </tr>`;
   }).join('');
