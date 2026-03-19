@@ -1,34 +1,41 @@
-// MAIN world — 覆盖页面的 window.fetch
+// MAIN world — 覆盖页面的 window.fetch，通过 postMessage 与隔离世界通信
 (function() {
   const LOG = '[AdSense Main]';
   const originalFetch = window.fetch;
-  console.log(LOG, '注入成功，原始 fetch 已保存');
+  const pendingRequests = new Map();
+
+  // 监听隔离世界返回的响应
+  window.addEventListener('message', function(e) {
+    if (e.source !== window) return;
+    const d = e.data;
+    if (d && d.type === 'ADSENSE_EXT_RESPONSE' && d.id && pendingRequests.has(d.id)) {
+      const { resolve, reject, timer } = pendingRequests.get(d.id);
+      pendingRequests.delete(d.id);
+      clearTimeout(timer);
+      if (d.error) { reject(new Error(d.error)); }
+      else {
+        resolve({
+          ok: d.ok, status: d.status, statusText: d.statusText,
+          json: () => JSON.parse(d.body),
+          text: () => Promise.resolve(d.body),
+          headers: new Headers(d.headers || {}),
+        });
+      }
+    }
+  });
 
   window.fetch = function(url, options) {
     const urlStr = typeof url === 'string' ? url : (url && url.url) || '';
     if (urlStr.includes('googleapis.com')) {
       console.log(LOG, '🎯 拦截:', urlStr.substring(0, 100));
       return new Promise((resolve, reject) => {
-        const id = Date.now() + '_' + Math.random().toString(36).slice(2);
-        const timeout = setTimeout(() => {
-          document.removeEventListener('adsense-ext-response', handler);
+        const id = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const timer = setTimeout(() => {
+          pendingRequests.delete(id);
           reject(new Error('扩展代理超时'));
         }, 25000);
 
-        const handler = function(ev) {
-          if (!ev.detail || ev.detail.id !== id) return;
-          document.removeEventListener('adsense-ext-response', handler);
-          clearTimeout(timeout);
-          const r = ev.detail;
-          if (r.error) { reject(new Error(r.error)); return; }
-          resolve({
-            ok: r.ok, status: r.status, statusText: r.statusText,
-            json: () => JSON.parse(r.body),
-            text: () => Promise.resolve(r.body),
-            headers: new Headers(r.headers || {}),
-          });
-        };
-        document.addEventListener('adsense-ext-response', handler);
+        pendingRequests.set(id, { resolve, reject, timer });
 
         // 把 headers 转成普通对象
         let hdrs = {};
@@ -42,17 +49,21 @@
           }
         } catch(e) {}
 
-        document.dispatchEvent(new CustomEvent('adsense-ext-request', {
-          detail: { id, url: urlStr, method: options?.method || 'GET', headers: hdrs, body: options?.body || null }
-        }));
+        // 发送给隔离世界
+        window.postMessage({
+          type: 'ADSENSE_EXT_REQUEST',
+          id, url: urlStr,
+          method: options?.method || 'GET',
+          headers: hdrs,
+          body: options?.body || null,
+        }, '*');
       });
     }
     return originalFetch.call(this, url, options);
   };
 
-  // 标记给页面检测用
   window.__adsenseExtension__ = { available: true, version: '4.0' };
-  console.log(LOG, '✅ fetch 已覆盖');
+  console.log(LOG, '✅ fetch 已覆盖，等待请求...');
 
   // 广播
   try { window.postMessage({ type: 'ADSENSE_EXT_LOADED', version: '4.0' }, '*'); } catch(e) {}

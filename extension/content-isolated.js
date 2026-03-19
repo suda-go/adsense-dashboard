@@ -1,4 +1,4 @@
-// ISOLATED world — 与 Service Worker 通信，转发请求
+// ISOLATED world — 与 Service Worker 通信，通过 postMessage 与 MAIN 世界通信
 (function() {
   const LOG = '[AdSense Isolated]';
   let port = null;
@@ -13,7 +13,15 @@
       port.onMessage.addListener((msg) => {
         if (msg.requestId) {
           console.log(LOG, '← SW 响应:', msg.requestId, msg.status || msg.error);
-          document.dispatchEvent(new CustomEvent('adsense-ext-response', { detail: msg }));
+          window.postMessage({
+            type: 'ADSENSE_EXT_RESPONSE',
+            id: msg.requestId,
+            ok: msg.ok,
+            status: msg.status,
+            statusText: msg.statusText,
+            body: msg.body,
+            error: msg.error,
+          }, '*');
         }
       });
 
@@ -31,10 +39,11 @@
   }
   connect();
 
-  // 监听 MAIN world 发来的请求
-  document.addEventListener('adsense-ext-request', function(e) {
-    const req = e.detail;
-    if (!req || !req.id) return;
+  // 监听 MAIN world 的请求
+  window.addEventListener('message', function(e) {
+    if (e.source !== window) return;
+    const req = e.data;
+    if (!req || req.type !== 'ADSENSE_EXT_REQUEST' || !req.id) return;
     console.log(LOG, '→ 收到请求:', req.method, req.url?.substring(0, 80));
 
     const send = () => {
@@ -49,21 +58,22 @@
         });
       } catch(err) {
         console.error(LOG, '发送失败:', err.message);
-        document.dispatchEvent(new CustomEvent('adsense-ext-response', {
-          detail: { id: req.id, error: 'Port 发送失败: ' + err.message }
-        }));
+        window.postMessage({
+          type: 'ADSENSE_EXT_RESPONSE',
+          id: req.id,
+          error: 'Port 发送失败: ' + err.message,
+        }, '*');
       }
     };
 
     if (connected) { send(); }
     else {
-      // 等连接
       const wait = setInterval(() => {
         if (connected) { clearInterval(wait); send(); }
       }, 100);
-      setTimeout(() => { clearInterval(wait); }, 5000);
+      setTimeout(() => clearInterval(wait), 5000);
     }
   });
 
-  console.log(LOG, '✅ 已就绪，等待请求');
+  console.log(LOG, '✅ 已就绪，监听 postMessage...');
 })();
