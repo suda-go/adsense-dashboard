@@ -113,6 +113,17 @@
     </div>
     <div class="status" id="authStatus">未授权</div>
 
+    <div style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-size:13px;color:#888;margin-bottom:8px">🔑 粘贴 Refresh Token（一次授权，永久使用，不掉线）</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="refreshTokenInput" placeholder="1//04xxxxx..." style="flex:1;padding:8px;border-radius:6px;border:1px solid #333;background:var(--bg);color:var(--text);font-size:13px">
+        <button class="btn btn-primary" onclick="saveRefreshToken()">💾 保存</button>
+      </div>
+      <div style="font-size:11px;color:#666;margin-top:6px">
+        获取：打开 OAuth Playground → 齿轮 ⚙️ → Use your own credentials → 填同事的 Client ID/Secret → 搜 adsense → Authorize → Exchange → 复制 refresh_token
+      </div>
+    </div>
+
     <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:14px">🧩 Chrome 扩展（推荐，一劳永逸）</span>
@@ -204,10 +215,12 @@
           <label>📅 时间范围</label>
           <select id="dateRange">
             <option value="today">今天</option>
-            <option value="yesterday" selected>昨天</option>
+            <option value="yesterday">昨天</option>
             <option value="last7">近7天</option>
-            <option value="last30">近30天</option>
+            <option value="last14">近14天</option>
+            <option value="last30" selected>近30天</option>
             <option value="last90">近90天</option>
+            <option value="last180">近180天</option>
           </select>
         </div>
         <div class="form-group" style="flex:0">
@@ -259,12 +272,65 @@
       </div>
     </div>
 
+    <!-- Domain Analysis -->
+    <div class="section">
+      <div class="section-title"><span>🌐</span> 域名分析</div>
+      <div class="card" style="padding:16px">
+        <canvas id="domainChart" height="200"></canvas>
+        <div style="margin-top:16px;overflow-x:auto">
+          <table id="domainTable">
+            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Domain Detail -->
+    <div class="section">
+      <div class="section-title"><span>📋</span> 每日×域名明细</div>
+      <div class="card" style="padding:16px;overflow-x:auto">
+        <table id="dailyDomainTable">
+          <thead><tr><th>日期</th><th>域名</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Period Summary -->
+    <div class="section">
+      <div class="section-title"><span>📊</span> 周期汇总</div>
+      <div class="grid-2">
+        <div class="card" id="periodSummary" style="padding:16px"></div>
+        <div class="card" id="dayOfWeekAnalysis" style="padding:16px"></div>
+      </div>
+    </div>
+
+    <!-- Monthly Comparison -->
+    <div class="section">
+      <div class="section-title"><span>📆</span> 月度对比</div>
+      <div class="card" id="monthlyComparison" style="padding:16px"></div>
+    </div>
+
+    <!-- Deep Analysis -->
+    <div class="section">
+      <div class="section-title"><span>🔍</span> 深度分析</div>
+      <div class="grid-2">
+        <div class="card" id="trendAnalysis" style="padding:16px"></div>
+        <div class="card" id="anomalyReport" style="padding:16px"></div>
+      </div>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="card" id="revenueDistribution" style="padding:16px"></div>
+        <div class="card" id="weeklyTrend" style="padding:16px"></div>
+      </div>
+    </div>
+
     <!-- Data Table -->
     <div class="section">
       <div class="section-title"><span>📋</span> 每日明细</div>
       <div class="card" style="padding:16px;">
         <table id="dailyTable">
-          <thead><tr><th>日期</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>展示</th></tr></thead>
+          <thead><tr><th>日期</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>展示</th><th>环比</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -468,6 +534,21 @@ async function testConnection() {
   }
 }
 
+function saveRefreshToken() {
+  const input = document.getElementById('refreshTokenInput');
+  const rt = input.value.trim();
+  if (!rt) { alert('请粘贴 Refresh Token'); return; }
+  
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  c.refreshToken = rt;
+  c.clientId = document.getElementById('clientId').value;
+  c.clientSecret = document.getElementById('clientSecret').value;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  
+  // Try to get an access token immediately
+  refreshToken(c);
+}
+
 function setAccessToken(token, refreshToken, expiresIn) {
   accessToken = token;
   saveAuth({
@@ -626,8 +707,10 @@ function getDateRange() {
     case 'today': start.setDate(end.getDate()); break;
     case 'yesterday': start.setDate(end.getDate()); break;
     case 'last7': start.setDate(end.getDate() - 6); break;
+    case 'last14': start.setDate(end.getDate() - 13); break;
     case 'last30': start.setDate(end.getDate() - 29); break;
     case 'last90': start.setDate(end.getDate() - 89); break;
+    case 'last180': start.setDate(end.getDate() - 179); break;
   }
   return {
     startDate: { year: start.getFullYear(), month: start.getMonth() + 1, day: start.getDate() },
@@ -675,7 +758,15 @@ async function fetchData() {
     const platUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
     const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
 
-    const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], startDate, endDate, fetchedAt: Date.now() };
+    // Fetch by domain (HOSTNAME)
+    const domainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['HOSTNAME']);
+    const domainData = await apiGet(domainUrl).catch(() => ({rows:[]}));
+
+    // Fetch daily by domain
+    const dailyDomainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DATE', 'HOSTNAME']);
+    const dailyDomainData = await apiGet(dailyDomainUrl).catch(() => ({rows:[]}));
+
+    const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], domain: domainData.rows || [], dailyDomain: dailyDomainData.rows || [], startDate, endDate, fetchedAt: Date.now() };
     localStorage.setItem(DATA_KEY, JSON.stringify(result));
 
     renderDashboard(result);
@@ -849,15 +940,20 @@ function renderDashboard(result) {
     setChange('kpiCTRChange', latest.ctr, prev.ctr, '', '%');
   }
 
-  // Revenue Trend Chart
+  // Revenue Trend Chart with 7-day MA
   if (charts.revenue) charts.revenue.destroy();
+  const ma7 = rows.map((r, i) => {
+    const slice = rows.slice(Math.max(0, i-6), i+1);
+    return parseFloat((slice.reduce((s,x) => s + x.earnings, 0) / slice.length).toFixed(2));
+  });
   charts.revenue = new Chart(document.getElementById('revenueChart'), {
     type: 'line',
     data: {
       labels: rows.map(r => r.date?.slice(5)),
       datasets: [
-        { label: '收入 ($)', data: rows.map(r => r.earnings), borderColor: '#34A853', backgroundColor: 'rgba(52,168,83,0.1)', fill: true, tension: 0.3, yAxisID: 'y' },
-        { label: 'RPM ($)', data: rows.map(r => r.rpm), borderColor: '#4285F4', borderDash: [5,5], fill: false, tension: 0.3, yAxisID: 'y1' },
+        { label: '日收入 ($)', data: rows.map(r => r.earnings), borderColor: '#34A853', backgroundColor: 'rgba(52,168,83,0.1)', fill: true, tension: 0.3, yAxisID: 'y', pointRadius: 3 },
+        { label: '7日均线 ($)', data: ma7, borderColor: '#FBBC04', borderWidth: 2, borderDash: [8,4], fill: false, tension: 0.3, yAxisID: 'y', pointRadius: 0 },
+        { label: 'RPM ($)', data: rows.map(r => r.rpm), borderColor: '#4285F4', borderDash: [5,5], fill: false, tension: 0.3, yAxisID: 'y1', pointRadius: 2 },
       ]
     },
     options: {
@@ -882,11 +978,13 @@ function renderDashboard(result) {
     options: { indexAxis: 'y', plugins: { legend: { display: false } } }
   });
 
-  // Country Table
+  // Country Table with percentage
+  const totalCountryEarnings = countryRows.reduce((s,r) => s + r.earnings, 0);
   const ctbody = document.querySelector('#countryTable tbody');
-  ctbody.innerHTML = countryRows.map(r =>
-    `<tr><td>${r.code}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>$${r.rpm.toFixed(2)}</td></tr>`
-  ).join('');
+  ctbody.innerHTML = countryRows.map(r => {
+    const pct = totalCountryEarnings > 0 ? (r.earnings / totalCountryEarnings * 100).toFixed(1) : '0';
+    return `<tr><td>${r.code}</td><td class="money">$${r.earnings.toFixed(2)} <small style="color:#888">(${pct}%)</small></td><td>${r.pageViews.toLocaleString()}</td><td>$${r.rpm.toFixed(2)}</td></tr>`;
+  }).join('');
 
   // Platform Chart
   const platRows = result.platform.map(parsePlatRow);
@@ -901,12 +999,29 @@ function renderDashboard(result) {
     options: { plugins: { legend: { position: 'bottom' } } }
   });
 
-  // Daily Table
+  // Daily Table with day-over-day change
   const dtbody = document.querySelector('#dailyTable tbody');
-  dtbody.innerHTML = rows.slice().reverse().map(r =>
-    `<tr><td>${r.date}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>${r.clicks.toLocaleString()}</td><td>${r.ctr.toFixed(2)}%</td><td>$${r.rpm.toFixed(2)}</td><td>${r.impressions.toLocaleString()}</td></tr>`
-  ).join('');
+  dtbody.innerHTML = rows.slice().reverse().map((r, idx, arr) => {
+    const prevIdx = idx + 1 < arr.length ? idx + 1 : -1;
+    let changeStr = '-';
+    if (prevIdx >= 0) {
+      const prev = arr[prevIdx];
+      const pct = prev.earnings > 0 ? ((r.earnings - prev.earnings) / prev.earnings * 100) : 0;
+      const isUp = pct >= 0;
+      changeStr = `<span style="color:${isUp ? '#34A853' : '#EA4335'}">${isUp ? '↑' : '↓'}${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+    return `<tr><td>${r.date}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>${r.clicks.toLocaleString()}</td><td>${r.ctr.toFixed(2)}%</td><td>$${r.rpm.toFixed(2)}</td><td>${r.impressions.toLocaleString()}</td><td>${changeStr}</td></tr>`;
+  }).join('');
 
+  // Domain Analysis
+  renderDomainAnalysis(result);
+
+  // Period Analysis
+  renderPeriodAnalysis(rows);
+  
+  // Deep Analysis
+  renderDeepAnalysis(rows);
+  
   // Anomaly Detection
   detectAnomalies(rows);
 }
@@ -920,30 +1035,491 @@ function setChange(id, current, prev, prefix='', suffix='') {
   el.className = 'change ' + (isUp ? 'change-up' : 'change-down');
 }
 
-function detectAnomalies(rows) {
-  if (rows.length < 3) return;
-  const alerts = [];
-  const latest = rows[rows.length - 1];
-  const avg7 = rows.slice(-7);
-  const avgEarnings = avg7.reduce((s,r) => s + r.earnings, 0) / avg7.length;
-  const avgRPM = avg7.reduce((s,r) => s + r.rpm, 0) / avg7.length;
-  const avgPV = avg7.reduce((s,r) => s + r.pageViews, 0) / avg7.length;
+// Domain Analysis
+function renderDomainAnalysis(result) {
+  const domainRows = (result.domain || []).map(row => {
+    const cells = row.cells || [];
+    return {
+      hostname: cells[0]?.value || 'Unknown',
+      earnings: parseFloat(cells[1]?.value || 0),
+      pageViews: parseInt(cells[2]?.value || 0),
+      clicks: parseInt(cells[3]?.value || 0),
+      impressions: parseInt(cells[4]?.value || 0),
+    };
+  }).sort((a, b) => b.earnings - a.earnings);
 
-  // Earnings drop > 20%
-  if (latest.earnings < avgEarnings * 0.8) {
-    const drop = ((avgEarnings - latest.earnings) / avgEarnings * 100).toFixed(0);
-    alerts.push(`🔴 收入下降 ${drop}%：今日 $${latest.earnings.toFixed(2)} vs 近期均值 $${avgEarnings.toFixed(2)}`);
+  if (domainRows.length === 0) {
+    document.getElementById('domainChart').parentElement.innerHTML = '<div style="text-align:center;color:#888;padding:40px">暂无域名数据</div>';
+    return;
   }
-  // RPM drop > 15%
-  if (latest.rpm < avgRPM * 0.85) {
-    const drop = ((avgRPM - latest.rpm) / avgRPM * 100).toFixed(0);
-    alerts.push(`🟠 RPM 下降 ${drop}%：今日 $${latest.rpm.toFixed(2)} vs 均值 $${avgRPM.toFixed(2)}`);
+
+  const totalDomainEarnings = domainRows.reduce((s, r) => s + r.earnings, 0);
+
+  // Domain Chart
+  if (charts.domain) charts.domain.destroy();
+  charts.domain = new Chart(document.getElementById('domainChart'), {
+    type: 'bar',
+    data: {
+      labels: domainRows.map(r => r.hostname?.replace('www.', '').slice(0, 30)),
+      datasets: [{ label: '收入 ($)', data: domainRows.map(r => r.earnings), backgroundColor: domainRows.map((_, i) => ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0','#00BCD4','#FF9800','#795548','#607D8B','#E91E63'][i % 10]), borderRadius: 4 }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: '收入 ($)' } } } }
+  });
+
+  // Domain Table
+  const dtbody = document.querySelector('#domainTable tbody');
+  dtbody.innerHTML = domainRows.map(r => {
+    const pct = totalDomainEarnings > 0 ? (r.earnings / totalDomainEarnings * 100).toFixed(1) : '0';
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
+    const rpm = r.pageViews > 0 ? (r.earnings / r.pageViews * 1000).toFixed(2) : '0';
+    return `<tr>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname}</td>
+      <td class="money">$${r.earnings.toFixed(2)}</td>
+      <td>${pct}%</td>
+      <td>${r.pageViews.toLocaleString()}</td>
+      <td>${r.clicks.toLocaleString()}</td>
+      <td>${ctr}%</td>
+      <td>$${rpm}</td>
+    </tr>`;
+  }).join('');
+
+  // Daily Domain Table
+  const dailyDomainRows = (result.dailyDomain || []).map(row => {
+    const cells = row.cells || [];
+    return {
+      date: cells[0]?.value,
+      hostname: cells[1]?.value || 'Unknown',
+      earnings: parseFloat(cells[2]?.value || 0),
+      pageViews: parseInt(cells[3]?.value || 0),
+      clicks: parseInt(cells[4]?.value || 0),
+      impressions: parseInt(cells[5]?.value || 0),
+    };
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.earnings - a.earnings);
+
+  const ddtbody = document.querySelector('#dailyDomainTable tbody');
+  ddtbody.innerHTML = dailyDomainRows.map(r => {
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
+    return `<tr>
+      <td>${r.date}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname}</td>
+      <td class="money">$${r.earnings.toFixed(2)}</td>
+      <td>${r.pageViews.toLocaleString()}</td>
+      <td>${r.clicks.toLocaleString()}</td>
+      <td>${ctr}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// Period Summary & Day-of-Week Analysis
+function renderPeriodAnalysis(rows) {
+  const totalEarnings = rows.reduce((s,r) => s + r.earnings, 0);
+  const totalPV = rows.reduce((s,r) => s + r.pageViews, 0);
+  const totalClicks = rows.reduce((s,r) => s + r.clicks, 0);
+  const totalImpressions = rows.reduce((s,r) => s + r.impressions, 0);
+  const avgDaily = totalEarnings / rows.length;
+  const avgRPM = totalPV > 0 ? (totalEarnings / totalPV * 1000) : 0;
+  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
+  
+  // Best and worst days
+  const sorted = [...rows].sort((a,b) => b.earnings - a.earnings);
+  const bestDay = sorted[0];
+  const worstDay = sorted[sorted.length - 1];
+  
+  // First half vs second half comparison
+  const mid = Math.floor(rows.length / 2);
+  const firstHalf = rows.slice(0, mid);
+  const secondHalf = rows.slice(mid);
+  const firstAvg = firstHalf.reduce((s,r) => s + r.earnings, 0) / firstHalf.length;
+  const secondAvg = secondHalf.reduce((s,r) => s + r.earnings, 0) / secondHalf.length;
+  const periodChange = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg * 100) : 0;
+
+  document.getElementById('periodSummary').innerHTML = `
+    <h3 style="margin-bottom:12px">📈 周期统计 (${rows[0].date} ~ ${rows[rows.length-1].date})</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+      <div>总收入：<b style="color:#34A853">$${totalEarnings.toFixed(2)}</b></div>
+      <div>日均收入：<b>$${avgDaily.toFixed(2)}</b></div>
+      <div>总浏览：<b>${totalPV.toLocaleString()}</b></div>
+      <div>总点击：<b>${totalClicks.toLocaleString()}</b></div>
+      <div>平均 RPM：<b>$${avgRPM.toFixed(2)}</b></div>
+      <div>平均 CTR：<b>${avgCTR.toFixed(2)}%</b></div>
+      <div>最佳日：<b>${bestDay.date.slice(5)}</b> ($${bestDay.earnings.toFixed(2)})</div>
+      <div>最差日：<b>${worstDay.date.slice(5)}</b> ($${worstDay.earnings.toFixed(2)})</div>
+      <div>前半vs后半：<span style="color:${periodChange >= 0 ? '#34A853' : '#EA4335'}">${periodChange >= 0 ? '↑' : '↓'}${Math.abs(periodChange).toFixed(1)}%</span></div>
+      <div>波动系数：<b>${(sorted[0].earnings / Math.max(sorted[sorted.length-1].earnings, 0.01)).toFixed(1)}x</b></div>
+    </div>
+  `;
+
+  // Day of week analysis
+  const dowData = {};
+  const dowNames = ['周日','周一','周二','周三','周四','周五','周六'];
+  rows.forEach(r => {
+    const d = new Date(r.date);
+    const dow = d.getDay();
+    if (!dowData[dow]) dowData[dow] = { earnings: 0, count: 0, pv: 0 };
+    dowData[dow].earnings += r.earnings;
+    dowData[dow].count++;
+    dowData[dow].pv += r.pageViews;
+  });
+
+  const dowAvg = dowNames.map((name, i) => {
+    const d = dowData[i] || { earnings: 0, count: 1, pv: 0 };
+    return { name, avg: d.earnings / d.count, avgPV: d.pv / d.count, count: d.count };
+  });
+
+  const maxDowAvg = Math.max(...dowAvg.map(d => d.avg));
+
+  document.getElementById('dayOfWeekAnalysis').innerHTML = `
+    <h3 style="margin-bottom:12px">📅 星期分析</h3>
+    <div style="font-size:13px">
+      ${dowAvg.map(d => {
+        const barWidth = maxDowAvg > 0 ? (d.avg / maxDowAvg * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:35px">${d.name}</span>
+          <div style="flex:1;background:#222;border-radius:4px;height:20px;overflow:hidden">
+            <div style="width:${barWidth}%;height:100%;background:#34A853;border-radius:4px;min-width:2px"></div>
+          </div>
+          <span style="width:70px;text-align:right">$${d.avg.toFixed(2)}</span>
+          <span style="width:50px;text-align:right;color:#888;font-size:11px">${d.count}天</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#888">
+      最佳：${dowAvg.reduce((a,b) => a.avg > b.avg ? a : b).name} 
+      | 最差：${dowAvg.reduce((a,b) => a.avg < b.avg ? a : b).name}
+    </div>
+  `;
+}
+
+// ===== MONTHLY COMPARISON =====
+function renderMonthlyComparison(rows) {
+  if (rows.length < 28) {
+    document.getElementById('monthlyComparison').innerHTML = '<div style="color:#888;font-size:13px">数据不足28天，无法做月度对比</div>';
+    return;
   }
-  // Page views drop > 25%
-  if (latest.pageViews < avgPV * 0.75) {
-    const drop = ((avgPV - latest.pageViews) / avgPV * 100).toFixed(0);
-    alerts.push(`🟠 流量下降 ${drop}%：今日 ${latest.pageViews} vs 均值 ${avgPV.toFixed(0)}`);
+
+  // Group by month
+  const months = {};
+  rows.forEach(r => {
+    const month = r.date.slice(0, 7); // YYYY-MM
+    if (!months[month]) months[month] = { earnings: 0, pv: 0, clicks: 0, impressions: 0, days: 0 };
+    months[month].earnings += r.earnings;
+    months[month].pv += r.pageViews;
+    months[month].clicks += r.clicks;
+    months[month].impressions += r.impressions;
+    months[month].days++;
+  });
+
+  const monthList = Object.entries(months).sort(([a], [b]) => a.localeCompare(b));
+  const maxEarnings = Math.max(...monthList.map(([, m]) => m.earnings));
+
+  let html = '<div style="font-size:13px">';
+  monthList.forEach(([month, data], i) => {
+    const avgDaily = data.earnings / data.days;
+    const rpm = data.pv > 0 ? (data.earnings / data.pv * 1000) : 0;
+    const ctr = data.impressions > 0 ? (data.clicks / data.impressions * 100) : 0;
+    const pct = maxEarnings > 0 ? (data.earnings / maxEarnings * 100) : 0;
+    
+    // MoM change
+    let momStr = '';
+    if (i > 0) {
+      const prevData = monthList[i-1][1];
+      const prevAvg = prevData.earnings / prevData.days;
+      const mom = prevAvg > 0 ? ((avgDaily - prevAvg) / prevAvg * 100) : 0;
+      momStr = `<span style="color:${mom >= 0 ? '#34A853' : '#EA4335'};margin-left:8px">${mom >= 0 ? '+' : ''}${mom.toFixed(1)}% 日均</span>`;
+    }
+
+    html += `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span><b>${month}</b> (${data.days}天)</span>
+        <span>$${data.earnings.toFixed(2)} ${momStr}</span>
+      </div>
+      <div style="background:#222;border-radius:4px;height:18px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4285F4,#34A853);border-radius:4px;min-width:2px"></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:4px;font-size:11px;color:#888">
+        <span>日均 $${avgDaily.toFixed(2)}</span>
+        <span>RPM ${rpm.toFixed(2)}</span>
+        <span>CTR ${ctr.toFixed(2)}%</span>
+        <span>浏览 ${data.pv.toLocaleString()}</span>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  document.getElementById('monthlyComparison').innerHTML = html;
+}
+
+// ===== DEEP ANALYSIS =====
+function renderDeepAnalysis(rows) {
+  renderMonthlyComparison(rows);
+  renderTrendAnalysis(rows);
+  renderAnomalyReport(rows);
+  renderRevenueDistribution(rows);
+  renderWeeklyTrend(rows);
+}
+
+function renderTrendAnalysis(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const n = earnings.length;
+  if (n < 3) return;
+  
+  // Linear regression
+  const meanX = (n - 1) / 2;
+  const meanY = earnings.reduce((a,b) => a+b, 0) / n;
+  let num = 0, den = 0;
+  earnings.forEach((y, x) => { num += (x - meanX) * (y - meanY); den += (x - meanX) ** 2; });
+  const slope = den ? num / den : 0;
+  const intercept = meanY - slope * meanX;
+  
+  // Trend direction
+  const totalChange = slope * n;
+  const pctChange = meanY > 0 ? (totalChange / meanY * 100) : 0;
+  let trendEmoji = '➡️', trendText = '平稳';
+  if (pctChange > 5) { trendEmoji = '📈'; trendText = '上升'; }
+  else if (pctChange < -5) { trendEmoji = '📉'; trendText = '下降'; }
+  
+  // Volatility (coefficient of variation)
+  const std = Math.sqrt(earnings.reduce((s,x) => s + (x - meanY)**2, 0) / n);
+  const cv = meanY > 0 ? (std / meanY * 100) : 0;
+  let volText = '低波动';
+  if (cv > 30) volText = '高波动';
+  else if (cv > 15) volText = '中等波动';
+  
+  // R-squared
+  const predicted = earnings.map((_, x) => intercept + slope * x);
+  const ssRes = earnings.reduce((s, y, i) => s + (y - predicted[i])**2, 0);
+  const ssTot = earnings.reduce((s, y) => s + (y - meanY)**2, 0);
+  const r2 = ssTot > 0 ? (1 - ssRes / ssTot) : 0;
+  
+  // Prediction for next 7 days
+  const predictions = [];
+  for (let i = 0; i < 7; i++) {
+    predictions.push(Math.max(0, intercept + slope * (n + i)));
   }
+  const predTotal = predictions.reduce((a,b) => a+b, 0);
+
+  document.getElementById('trendAnalysis').innerHTML = `
+    <h3 style="margin-bottom:12px">📈 趋势分析</h3>
+    <div style="font-size:13px">
+      <div style="margin-bottom:8px">${trendEmoji} 趋势方向：<b>${trendText}</b>（周期内变化 ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%）</div>
+      <div style="margin-bottom:8px">📊 波动率：<b>${volText}</b>（CV: ${cv.toFixed(1)}%）</div>
+      <div style="margin-bottom:8px">🎯 趋势拟合度：R² = ${r2.toFixed(3)}（${r2 > 0.7 ? '趋势稳定' : r2 > 0.3 ? '趋势一般' : '趋势不明显'}）</div>
+      <div style="margin-bottom:8px">📉 日均斜率：${slope >= 0 ? '+' : ''}$${slope.toFixed(2)}/天</div>
+      <div style="margin-top:12px;padding:8px;background:#1a1a2e;border-radius:6px">
+        <div style="color:#888;margin-bottom:4px">🔮 未来 7 天预测（线性外推）</div>
+        <div>预估总收入：<b style="color:#34A853">$${predTotal.toFixed(2)}</b></div>
+        <div style="font-size:11px;color:#888">（仅基于历史趋势，实际受周末/节日等因素影响）</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAnomalyReport(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const mean = earnings.reduce((a,b) => a+b, 0) / earnings.length;
+  const std = Math.sqrt(earnings.reduce((s,x) => s + (x - mean)**2, 0) / earnings.length);
+  
+  const anomalies = rows.filter(r => Math.abs(r.earnings - mean) > std * 1.5).map(r => ({
+    ...r,
+    zscore: std > 0 ? ((r.earnings - mean) / std) : 0,
+    direction: r.earnings > mean ? 'up' : 'down',
+  }));
+  
+  const pvMean = rows.reduce((s,r) => s + r.pageViews, 0) / rows.length;
+  const pvStd = Math.sqrt(rows.reduce((s,r) => s + (r.pageViews - pvMean)**2, 0) / rows.length);
+  const pvAnomalies = rows.filter(r => Math.abs(r.pageViews - pvMean) > pvStd * 1.5);
+  
+  let html = `<h3 style="margin-bottom:12px">🚨 异常检测</h3>`;
+  
+  if (anomalies.length === 0 && pvAnomalies.length === 0) {
+    html += `<div style="font-size:13px;color:#34A853">✅ 未检测到显著异常</div>
+    <div style="font-size:11px;color:#888;margin-top:4px">所有数据点在 ±1.5σ 范围内</div>`;
+  } else {
+    html += `<div style="font-size:13px">发现 <b style="color:#EA4335">${anomalies.length}</b> 个收入异常日</div>`;
+    html += `<div style="margin-top:8px;font-size:12px">`;
+    anomalies.forEach(a => {
+      const arrow = a.direction === 'up' ? '🟢 ↑' : '🔴 ↓';
+      const zStr = a.zscore > 0 ? `+${a.zscore.toFixed(1)}` : a.zscore.toFixed(1);
+      html += `<div style="padding:4px 0;border-bottom:1px solid #222">${arrow} ${a.date.slice(5)}: $${a.earnings.toFixed(2)} (z=${zStr}σ, 日均$${mean.toFixed(2)})</div>`;
+    });
+    html += `</div>`;
+    
+    if (pvAnomalies.length > 0) {
+      html += `<div style="margin-top:8px;font-size:12px;color:#888">另有 ${pvAnomalies.length} 个流量异常日</div>`;
+    }
+  }
+  
+  // Count zeros or very low days
+  const zeroDays = rows.filter(r => r.earnings < mean * 0.2);
+  if (zeroDays.length > 0) {
+    html += `<div style="margin-top:8px;padding:6px;background:#2d1f1f;border-radius:4px;font-size:12px">⚠️ ${zeroDays.length} 天收入低于均值 20%：${zeroDays.map(r => r.date.slice(5)).join(', ')}</div>`;
+  }
+  
+  document.getElementById('anomalyReport').innerHTML = html;
+}
+
+function renderRevenueDistribution(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const min = Math.min(...earnings);
+  const max = Math.max(...earnings);
+  const mean = earnings.reduce((a,b) => a+b, 0) / earnings.length;
+  
+  // Create buckets
+  const bucketCount = Math.min(10, rows.length);
+  const bucketSize = (max - min) / bucketCount || 1;
+  const buckets = Array(bucketCount).fill(0);
+  earnings.forEach(e => {
+    const idx = Math.min(Math.floor((e - min) / bucketSize), bucketCount - 1);
+    buckets[idx]++;
+  });
+  
+  const maxBucket = Math.max(...buckets);
+  let html = `<h3 style="margin-bottom:12px">📊 收入分布</h3>`;
+  html += `<div style="font-size:12px">`;
+  buckets.forEach((count, i) => {
+    const low = (min + i * bucketSize).toFixed(0);
+    const high = (min + (i+1) * bucketSize).toFixed(0);
+    const pct = maxBucket > 0 ? (count / maxBucket * 100) : 0;
+    const isMeanBucket = mean >= (min + i*bucketSize) && mean < (min + (i+1)*bucketSize);
+    html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="width:70px;text-align:right;color:#888">$${low}-${high}</span>
+      <div style="flex:1;background:#222;border-radius:3px;height:16px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${isMeanBucket ? '#FBBC04' : '#4285F4'};border-radius:3px;min-width:1px"></div>
+      </div>
+      <span style="width:30px">${count}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div style="margin-top:8px;font-size:11px;color:#888">
+    均值: $${mean.toFixed(2)} | 中位数: $${earnings.sort((a,b)=>a-b)[Math.floor(earnings.length/2)].toFixed(2)} | 范围: $${min.toFixed(2)} - $${max.toFixed(2)}
+  </div>`;
+  
+  document.getElementById('revenueDistribution').innerHTML = html;
+}
+
+function renderWeeklyTrend(rows) {
+  if (rows.length < 14) {
+    document.getElementById('weeklyTrend').innerHTML = '<h3>📅 周度趋势</h3><div style="font-size:13px;color:#888">数据不足 14 天，无法计算周度趋势</div>';
+    return;
+  }
+  
+  // Group by week
+  const weeks = [];
+  let currentWeek = [];
+  rows.forEach((r, i) => {
+    const d = new Date(r.date);
+    currentWeek.push(r);
+    if (d.getDay() === 6 || i === rows.length - 1) {
+      if (currentWeek.length > 0) {
+        const weekEarnings = currentWeek.reduce((s,x) => s + x.earnings, 0);
+        const weekPV = currentWeek.reduce((s,x) => s + x.pageViews, 0);
+        const weekClicks = currentWeek.reduce((s,x) => s + x.clicks, 0);
+        weeks.push({
+          start: currentWeek[0].date,
+          end: currentWeek[currentWeek.length-1].date,
+          earnings: weekEarnings,
+          pv: weekPV,
+          clicks: weekClicks,
+          days: currentWeek.length,
+          avgDaily: weekEarnings / currentWeek.length,
+          rpm: weekPV > 0 ? (weekEarnings / weekPV * 1000) : 0,
+        });
+      }
+      currentWeek = [];
+    }
+  });
+  
+  const maxWeekEarnings = Math.max(...weeks.map(w => w.earnings));
+  
+  let html = `<h3 style="margin-bottom:12px">📅 周度趋势</h3>`;
+  html += `<div style="font-size:12px">`;
+  weeks.forEach((w, i) => {
+    const pct = maxWeekEarnings > 0 ? (w.earnings / maxWeekEarnings * 100) : 0;
+    const wow = i > 0 ? ((w.avgDaily - weeks[i-1].avgDaily) / weeks[i-1].avgDaily * 100) : 0;
+    const wowStr = i > 0 ? `<span style="color:${wow >= 0 ? '#34A853' : '#EA4335'}">${wow >= 0 ? '+' : ''}${wow.toFixed(1)}%</span>` : '';
+    html += `<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span>${w.start.slice(5)} ~ ${w.end.slice(5)} (${w.days}天)</span>
+        <span>$${w.earnings.toFixed(2)} ${wowStr}</span>
+      </div>
+      <div style="background:#222;border-radius:3px;height:14px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4285F4,#34A853);border-radius:3px;min-width:1px"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  
+  document.getElementById('weeklyTrend').innerHTML = html;
+}
+
+function detectAnomalies(rows) {
+  if (rows.length < 7) return;
+  const alerts = [];
+  const n = rows.length;
+  const latest = rows[n - 1];
+  const prev = rows[n - 2];
+  
+  const avg7 = rows.slice(-7);
+  const avgEarnings7 = avg7.reduce((s,r) => s + r.earnings, 0) / avg7.length;
+  const avgRPM7 = avg7.reduce((s,r) => s + r.rpm, 0) / avg7.length;
+  const avgPV7 = avg7.reduce((s,r) => s + r.pageViews, 0) / avg7.length;
+  const avgClicks7 = avg7.reduce((s,r) => s + r.clicks, 0) / avg7.length;
+  const avgCTR7 = avg7.reduce((s,r) => s + r.ctr, 0) / avg7.length;
+  
+  const allEarnings = rows.map(r => r.earnings);
+  const mean = allEarnings.reduce((a,b) => a+b, 0) / n;
+  const std = Math.sqrt(allEarnings.reduce((s,x) => s + (x-mean)**2, 0) / n);
+
+  // === 异常检测 ===
+  const zEarnings = std > 0 ? (latest.earnings - mean) / std : 0;
+  if (Math.abs(zEarnings) > 1.5) {
+    const direction = zEarnings > 0 ? '异常高' : '异常低';
+    const emoji = zEarnings > 0 ? '🟢' : '🔴';
+    alerts.push(`${emoji} 收入${direction}：$${latest.earnings.toFixed(2)} (z=${zEarnings.toFixed(1)}σ，均值$${mean.toFixed(2)})`);
+  }
+
+  if (prev) {
+    const dodChange = prev.earnings > 0 ? ((latest.earnings - prev.earnings) / prev.earnings * 100) : 0;
+    if (Math.abs(dodChange) > 30) {
+      alerts.push(`${dodChange > 0 ? '🟢' : '🔴'} 日环比${dodChange > 0 ? '暴涨' : '暴跌'}：${dodChange > 0 ? '+' : ''}${dodChange.toFixed(1)}%`);
+    }
+  }
+
+  if (latest.earnings < avgEarnings7 * 0.8 && avgEarnings7 > 0) {
+    const drop = ((avgEarnings7 - latest.earnings) / avgEarnings7 * 100).toFixed(0);
+    alerts.push(`🔴 收入下降 ${drop}%：$${latest.earnings.toFixed(2)} vs 7日均值 $${avgEarnings7.toFixed(2)}`);
+  }
+
+  // === 归因分析 ===
+  if (latest.rpm < avgRPM7 * 0.85 && avgRPM7 > 0) {
+    const rpmDrop = ((avgRPM7 - latest.rpm) / avgRPM7 * 100).toFixed(0);
+    alerts.push(`💡 归因→RPM下降${rpmDrop}%（广告单价跌），可能是广告主竞争减少或流量质量变化`);
+  }
+  if (latest.pageViews < avgPV7 * 0.75 && avgPV7 > 0) {
+    const pvDrop = ((avgPV7 - latest.pageViews) / avgPV7 * 100).toFixed(0);
+    alerts.push(`💡 归因→浏览量下降${pvDrop}%（流量跌），检查SEO/搜索流量/站点可访问性`);
+  }
+  if (latest.ctr < avgCTR7 * 0.8 && avgCTR7 > 0) {
+    const ctrDrop = ((avgCTR7 - latest.ctr) / avgCTR7 * 100).toFixed(0);
+    alerts.push(`💡 归因→CTR下降${ctrDrop}%（点击率跌），广告位置/格式/用户行为变化`);
+  }
+
+  // 近14天异常日扫描
+  const recentAnomalies = [];
+  for (let i = Math.max(0, n-14); i < n; i++) {
+    const z = std > 0 ? (rows[i].earnings - mean) / std : 0;
+    if (Math.abs(z) > 1.5) recentAnomalies.push({ day: rows[i], z });
+  }
+  if (recentAnomalies.length > 0 && recentAnomalies.length <= 8) {
+    alerts.push(`📋 近14天异常日：${recentAnomalies.map(a => `${a.day.date.slice(5)}($${a.day.earnings.toFixed(1)},z=${a.z.toFixed(1)})`).join('、')}`);
+  }
+
+  // 连续低于均值
+  let belowStreak = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    if (rows[i].earnings < mean * 0.8) belowStreak++; else break;
+  }
+  if (belowStreak >= 3) alerts.push(`⚠️ 连续${belowStreak}天收入低于均值80%`);
 
   const panel = document.getElementById('alertPanel');
   const list = document.getElementById('alertList');
