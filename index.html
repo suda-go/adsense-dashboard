@@ -279,7 +279,7 @@
         <canvas id="domainChart" height="200"></canvas>
         <div style="margin-top:16px;overflow-x:auto">
           <table id="domainTable">
-            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th></tr></thead>
+            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>趋势</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1054,36 +1054,26 @@ function renderDomainAnalysis(result) {
   }
 
   const totalDomainEarnings = domainRows.reduce((s, r) => s + r.earnings, 0);
+  const totalPV = domainRows.reduce((s, r) => s + r.pageViews, 0);
 
-  // Domain Chart
+  // Domain Pie Chart
   if (charts.domain) charts.domain.destroy();
+  const topN = domainRows.slice(0, 10);
+  const otherEarnings = domainRows.slice(10).reduce((s, r) => s + r.earnings, 0);
+  const chartLabels = [...topN.map(r => r.hostname?.replace('www.', '').slice(0, 25))];
+  const chartData = [...topN.map(r => r.earnings)];
+  if (otherEarnings > 0) { chartLabels.push('其他'); chartData.push(otherEarnings); }
+  
   charts.domain = new Chart(document.getElementById('domainChart'), {
-    type: 'bar',
+    type: 'doughnut',
     data: {
-      labels: domainRows.map(r => r.hostname?.replace('www.', '').slice(0, 30)),
-      datasets: [{ label: '收入 ($)', data: domainRows.map(r => r.earnings), backgroundColor: domainRows.map((_, i) => ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0','#00BCD4','#FF9800','#795548','#607D8B','#E91E63'][i % 10]), borderRadius: 4 }]
+      labels: chartLabels,
+      datasets: [{ data: chartData, backgroundColor: ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0','#00BCD4','#FF9800','#795548','#607D8B','#E91E63','#444'], borderWidth: 2, borderColor: '#111' }]
     },
-    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: '收入 ($)' } } } }
+    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } } } }
   });
 
-  // Domain Table
-  const dtbody = document.querySelector('#domainTable tbody');
-  dtbody.innerHTML = domainRows.map(r => {
-    const pct = totalDomainEarnings > 0 ? (r.earnings / totalDomainEarnings * 100).toFixed(1) : '0';
-    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
-    const rpm = r.pageViews > 0 ? (r.earnings / r.pageViews * 1000).toFixed(2) : '0';
-    return `<tr>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname}</td>
-      <td class="money">$${r.earnings.toFixed(2)}</td>
-      <td>${pct}%</td>
-      <td>${r.pageViews.toLocaleString()}</td>
-      <td>${r.clicks.toLocaleString()}</td>
-      <td>${ctr}%</td>
-      <td>$${rpm}</td>
-    </tr>`;
-  }).join('');
-
-  // Daily Domain Table
+  // Domain Table with comparison
   const dailyDomainRows = (result.dailyDomain || []).map(row => {
     const cells = row.cells || [];
     return {
@@ -1094,14 +1084,66 @@ function renderDomainAnalysis(result) {
       clicks: parseInt(cells[4]?.value || 0),
       impressions: parseInt(cells[5]?.value || 0),
     };
-  }).sort((a, b) => b.date.localeCompare(a.date) || b.earnings - a.earnings);
+  });
+
+  // Calculate per-domain trend (first half vs second half)
+  const domainTrend = {};
+  const allDates = [...new Set(dailyDomainRows.map(r => r.date))].sort();
+  if (allDates.length >= 4) {
+    const midDate = allDates[Math.floor(allDates.length / 2)];
+    domainRows.forEach(d => { domainTrend[d.hostname] = { first: 0, second: 0 }; });
+    dailyDomainRows.forEach(r => {
+      if (domainTrend[r.hostname]) {
+        if (r.date < midDate) domainTrend[r.hostname].first += r.earnings;
+        else domainTrend[r.hostname].second += r.earnings;
+      }
+    });
+  }
+
+  const dtbody = document.querySelector('#domainTable tbody');
+  dtbody.innerHTML = domainRows.map(r => {
+    const pct = totalDomainEarnings > 0 ? (r.earnings / totalDomainEarnings * 100).toFixed(1) : '0';
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
+    const rpm = r.pageViews > 0 ? (r.earnings / r.pageViews * 1000).toFixed(2) : '0';
+    const pvPct = totalPV > 0 ? (r.pageViews / totalPV * 100).toFixed(1) : '0';
+    
+    let trendStr = '-';
+    if (domainTrend[r.hostname]) {
+      const { first, second } = domainTrend[r.hostname];
+      if (first > 0) {
+        const t = ((second - first) / first * 100);
+        trendStr = `<span style="color:${t >= 0 ? '#34A853' : '#EA4335'}">${t >= 0 ? '+' : ''}${t.toFixed(1)}%</span>`;
+      }
+    }
+    
+    return `<tr>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname}</td>
+      <td class="money">$${r.earnings.toFixed(2)}</td>
+      <td>${pct}%</td>
+      <td>${r.pageViews.toLocaleString()} <small style="color:#666">(${pvPct}%)</small></td>
+      <td>${r.clicks.toLocaleString()}</td>
+      <td>${ctr}%</td>
+      <td>$${rpm}</td>
+      <td>${trendStr}</td>
+    </tr>`;
+  }).join('');
+
+  // Update table header to include trend
+  const dthead = document.querySelector('#domainTable thead tr');
+  if (dthead && !dthead.innerHTML.includes('趋势')) {
+    dthead.innerHTML = '<th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>趋势</th>';
+  }
+
+  // Daily Domain Table (top domains only)
+  const topDomains = domainRows.slice(0, 8).map(r => r.hostname);
+  const filteredDaily = dailyDomainRows.filter(r => topDomains.includes(r.hostname)).sort((a, b) => b.date.localeCompare(a.date) || b.earnings - a.earnings);
 
   const ddtbody = document.querySelector('#dailyDomainTable tbody');
-  ddtbody.innerHTML = dailyDomainRows.map(r => {
+  ddtbody.innerHTML = filteredDaily.map(r => {
     const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
     return `<tr>
       <td>${r.date}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.hostname}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname?.replace('www.','').slice(0,25)}</td>
       <td class="money">$${r.earnings.toFixed(2)}</td>
       <td>${r.pageViews.toLocaleString()}</td>
       <td>${r.clicks.toLocaleString()}</td>
