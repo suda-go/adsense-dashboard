@@ -639,30 +639,38 @@ async function fetchData() {
   if (!account) return;
   const { startDate, endDate, range, label } = getDateRange();
   document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
-  const reportUrl = apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate`);
-  console.log('[AdSense] Account:', account, 'URL:', reportUrl);
+
+  // 构建 GET 报告 URL（同事的代码用 GET + 查询参数，不是 POST）
+  function buildReportUrl(metrics, dimensions) {
+    const params = new URLSearchParams();
+    params.set('dateRange', 'CUSTOM');
+    params.set('startDate.year', startDate.year);
+    params.set('startDate.month', startDate.month);
+    params.set('startDate.day', startDate.day);
+    params.set('endDate.year', endDate.year);
+    params.set('endDate.month', endDate.month);
+    params.set('endDate.day', endDate.day);
+    metrics.forEach(m => params.append('metrics', m));
+    dimensions.forEach(d => params.append('dimensions', d));
+    return apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate?${params.toString()}`);
+  }
+
+  console.log('[AdSense] Account:', account);
 
   try {
-    function buildBody(metrics, dimensions) {
-      return {
-        dateRange: 'CUSTOM',
-        startDate, endDate,
-        metrics, dimensions,
-      };
-    }
-
     // Fetch daily report
-    const data = await apiPost(reportUrl, buildBody(
-      ['EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS', 'PAGE_VIEWS_CTR', 'PAGE_VIEWS_RPM'],
-      ['DATE']
-    ));
+    const dailyUrl = buildReportUrl(['IMPRESSIONS', 'CLICKS', 'ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['DATE']);
+    console.log('[AdSense] Daily URL:', dailyUrl);
+    const data = await apiGet(dailyUrl);
     const rows = data.rows || [];
 
     // Fetch by country
-    const countryData = await apiPost(reportUrl, buildBody(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE'])).catch(() => ({rows:[]}));
+    const countryUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['COUNTRY_CODE']);
+    const countryData = await apiGet(countryUrl).catch(() => ({rows:[]}));
 
     // Fetch by platform
-    const platData = await apiPost(reportUrl, buildBody(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM'])).catch(() => ({rows:[]}));
+    const platUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
+    const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
 
     const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], startDate, endDate, fetchedAt: Date.now() };
     localStorage.setItem(DATA_KEY, JSON.stringify(result));
@@ -788,14 +796,21 @@ function showDashboard() {
 // ===== RENDER =====
 function parseRow(row) {
   const cells = row.cells || [];
+  // Metrics: IMPRESSIONS, CLICKS, ESTIMATED_EARNINGS, PAGE_VIEWS
+  const impressions = parseInt(cells[1]?.value || 0);
+  const clicks = parseInt(cells[2]?.value || 0);
+  const earnings = parseFloat(cells[3]?.value || 0);
+  const pageViews = parseInt(cells[4]?.value || 0);
+  const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+  const rpm = pageViews > 0 ? (earnings / pageViews * 1000) : 0;
   return {
     date: cells[0]?.value,
-    earnings: parseFloat(cells[1]?.value || 0),
-    pageViews: parseInt(cells[2]?.value || 0),
-    clicks: parseInt(cells[3]?.value || 0),
-    impressions: parseInt(cells[4]?.value || 0),
-    ctr: parseFloat(cells[5]?.value || 0) * 100,
-    rpm: parseFloat(cells[6]?.value || 0),
+    earnings,
+    pageViews,
+    clicks,
+    impressions,
+    ctr,
+    rpm,
   };
 }
 
