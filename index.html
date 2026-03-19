@@ -758,12 +758,12 @@ async function fetchData() {
     const platUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
     const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
 
-    // Fetch by domain (HOSTNAME)
-    const domainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['HOSTNAME']);
+    // Fetch by domain (DOMAIN_NAME)
+    const domainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DOMAIN_NAME']);
     const domainData = await apiGet(domainUrl).catch(() => ({rows:[]}));
 
     // Fetch daily by domain
-    const dailyDomainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DATE', 'HOSTNAME']);
+    const dailyDomainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DATE', 'DOMAIN_NAME']);
     const dailyDomainData = await apiGet(dailyDomainUrl).catch(() => ({rows:[]}));
 
     const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], domain: domainData.rows || [], dailyDomain: dailyDomainData.rows || [], startDate, endDate, fetchedAt: Date.now() };
