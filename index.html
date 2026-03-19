@@ -796,9 +796,12 @@ function detectAnomalies(rows) {
 loadProxy();
 loadConfig();
 
-// Check for Chrome extension after a short delay (content script loads async)
-setTimeout(checkExtension, 500);
-setTimeout(checkExtension, 2000);
+// Check for Chrome extension — poll until found or timeout
+let extCheckCount = 0;
+const extCheckInterval = setInterval(() => {
+  extCheckCount++;
+  if (checkExtension() || extCheckCount > 20) clearInterval(extCheckInterval);
+}, 300);
 </script>
 </body>
 </html>

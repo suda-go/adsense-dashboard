@@ -74,6 +74,12 @@
   if (document.body) showBadge();
   else document.addEventListener('DOMContentLoaded', showBadge);
 
-  // 广播状态
-  try { window.postMessage({ type: 'ADSENSE_EXT_LOADED', version: '1.3' }, '*'); } catch(e) {}
+  // 广播状态 — 多次发送确保页面能收到
+  function broadcast() {
+    try { window.postMessage({ type: 'ADSENSE_EXT_LOADED', version: '1.3' }, '*'); } catch(e) {}
+  }
+  broadcast();
+  setTimeout(broadcast, 100);
+  setTimeout(broadcast, 500);
+  setTimeout(broadcast, 1000);
 })();
