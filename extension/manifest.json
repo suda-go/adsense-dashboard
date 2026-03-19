@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AdSense Dashboard Helper",
-  "version": "3.0",
-  "description": "解决 AdSense API 浏览器 CORS 限制，配合 AdSense Dashboard 工具使用",
+  "version": "4.0",
+  "description": "解决 AdSense API 浏览器 CORS 限制",
   "permissions": [],
   "host_permissions": [
     "https://adsense.googleapis.com/*",
@@ -12,8 +12,14 @@
   "content_scripts": [
     {
       "matches": ["https://suda-go.github.io/*", "http://localhost:*/*"],
-      "js": ["content.js"],
+      "js": ["content-isolated.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://suda-go.github.io/*", "http://localhost:*/*"],
+      "js": ["content-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "background": {
