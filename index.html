@@ -442,7 +442,7 @@ async function testConnection() {
   try {
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 15000);
-    const resp = await fetch(apiUrl('https://www.googleapis.com/adsense/v1.4/accounts'), {
+    const resp = await fetch(apiUrl('https://adsense.googleapis.com/v2/accounts'), {
       headers: { 'Authorization': 'Bearer ' + accessToken },
       signal: ctrl.signal,
     });
@@ -535,50 +535,14 @@ async function apiGet(url) {
 async function loadAccounts() {
   document.getElementById('dataStatus').textContent = '正在加载账号...';
   try {
-    const data = await apiGet(apiUrl('https://www.googleapis.com/adsense/v1.4/accounts'));
-    accounts = data.items || data.accounts || [];
+    const data = await apiGet(apiUrl('https://adsense.googleapis.com/v2/accounts'));
+    accounts = data.accounts || [];
     const sel = document.getElementById('accountSelect');
-    sel.innerHTML = accounts.map(a => `<option value="${a.id || a.name}">${a.name || a.displayName || a.id}</option>`).join('');
+    sel.innerHTML = accounts.map(a => `<option value="${a.name}">${a.displayName || a.name}</option>`).join('');
     document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
     if (accounts.length > 0) fetchData();
   } catch(e) {
-    // Try adclients endpoint first (more reliable)
-    console.log('[AdSense] accounts失败，尝试adclients...');
-    try {
-      const acData = await apiGet(apiUrl('https://www.googleapis.com/adsense/v1.4/adclients'));
-      const clients = acData.items || [];
-      if (clients.length > 0) {
-        // Use first adclient's ID as account
-        const clientId = clients[0].id;
-        accounts = [{ id: clientId, name: clients[0].name || clientId }];
-        const sel = document.getElementById('accountSelect');
-        sel.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-        document.getElementById('dataStatus').textContent = `✅ 找到广告客户端: ${clients[0].name || clientId}`;
-        fetchData();
-        return;
-      }
-    } catch(e3) {
-      console.log('[AdSense] adclients也失败:', e3.message);
-    }
-    // v2/accounts 404时，尝试用publisher ID直接访问
-    console.log('[AdSense] v2/accounts失败，尝试直接用publisher ID...');
-    const pubId = document.getElementById('pubId')?.value?.trim();
-    if (pubId) {
-      try {
-        const bareId = pubId.replace(/^pub-/, '');
-        const data = await apiGet(apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${bareId}`));
-        accounts = [data];
-        const sel = document.getElementById('accountSelect');
-        sel.innerHTML = `<option value="${data.id || data.name}">${data.name || data.displayName || data.id}</option>`;
-        document.getElementById('dataStatus').textContent = `✅ 已加载账号: ${data.displayName || data.name}`;
-        fetchData();
-        return;
-      } catch(e2) {
-        document.getElementById('dataStatus').textContent = '❌ 账号加载失败: ' + e.message + ' | 直接访问: ' + e2.message;
-        return;
-      }
-    }
-    document.getElementById('dataStatus').innerHTML = '❌ ' + e.message + '<br><small>提示：如果API返回404，请在下方填入Publisher ID（格式：pub-XXXXXXXXXXXXXXXX）</small>';
+    document.getElementById('dataStatus').innerHTML = '❌ ' + e.message + '<br><small>请确认 AdSense Management API 已启用，Token 有效</small>';
   }
 }
 
@@ -639,43 +603,32 @@ function getDateRange() {
 async function fetchData() {
   let account = document.getElementById('accountSelect').value;
   if (!account) return;
-  // Strip pub- prefix for v1.4 API
-  const bareAccount = account.replace(/^accounts\//, '').replace(/^pub-/, '');
   const { startDate, endDate, range, label } = getDateRange();
   document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
-
-  // v1.4 API uses GET with query params
-  function buildReportUrl(metrics, dimensions) {
-    const params = new URLSearchParams();
-    params.set('startDate.year', startDate.year);
-    params.set('startDate.month', startDate.month);
-    params.set('startDate.day', startDate.day);
-    params.set('endDate.year', endDate.year);
-    params.set('endDate.month', endDate.month);
-    params.set('endDate.day', endDate.day);
-    metrics.forEach(m => params.append('metric', m));
-    dimensions.forEach(d => params.append('dimension', d));
-    return apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${bareAccount}/reports?${params.toString()}`);
-  }
-
-  console.log('[AdSense] Account:', account);
+  const reportUrl = apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate`);
+  console.log('[AdSense] Account:', account, 'URL:', reportUrl);
 
   try {
+    function buildBody(metrics, dimensions) {
+      return {
+        dateRange: 'CUSTOM',
+        startDate, endDate,
+        metrics, dimensions,
+      };
+    }
+
     // Fetch daily report
-    const dailyUrl = buildReportUrl(
+    const data = await apiPost(reportUrl, buildBody(
       ['EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS', 'PAGE_VIEWS_CTR', 'PAGE_VIEWS_RPM'],
       ['DATE']
-    );
-    const data = await apiGet(dailyUrl);
+    ));
     const rows = data.rows || [];
 
     // Fetch by country
-    const countryUrl = buildReportUrl(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE']);
-    const countryData = await apiGet(countryUrl).catch(() => ({rows:[]}));
+    const countryData = await apiPost(reportUrl, buildBody(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE'])).catch(() => ({rows:[]}));
 
     // Fetch by platform
-    const platUrl = buildReportUrl(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
-    const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
+    const platData = await apiPost(reportUrl, buildBody(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM'])).catch(() => ({rows:[]}));
 
     const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], startDate, endDate, fetchedAt: Date.now() };
     localStorage.setItem(DATA_KEY, JSON.stringify(result));
@@ -690,19 +643,6 @@ async function fetchData() {
 
 // ===== RENDER =====
 function parseRow(row) {
-  // v1.4: row is an array [date, earnings, pageViews, clicks, impressions, ctr, rpm]
-  // v2: row.cells is array of {value: ...}
-  if (Array.isArray(row)) {
-    return {
-      date: row[0],
-      earnings: parseFloat(row[1] || 0),
-      pageViews: parseInt(row[2] || 0),
-      clicks: parseInt(row[3] || 0),
-      impressions: parseInt(row[4] || 0),
-      ctr: parseFloat(row[5] || 0) * 100,
-      rpm: parseFloat(row[6] || 0),
-    };
-  }
   const cells = row.cells || [];
   return {
     date: cells[0]?.value,
@@ -716,17 +656,11 @@ function parseRow(row) {
 }
 
 function parseCountryRow(row) {
-  if (Array.isArray(row)) {
-    return { code: row[0], earnings: parseFloat(row[1] || 0), pageViews: parseInt(row[2] || 0), rpm: parseFloat(row[3] || 0) };
-  }
   const cells = row.cells || [];
   return { code: cells[0]?.value, earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0), rpm: parseFloat(cells[3]?.value || 0) };
 }
 
 function parsePlatRow(row) {
-  if (Array.isArray(row)) {
-    return { platform: row[0] || 'Unknown', earnings: parseFloat(row[1] || 0), pageViews: parseInt(row[2] || 0) };
-  }
   const cells = row.cells || [];
   return { platform: cells[0]?.value || 'Unknown', earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0) };
 }
