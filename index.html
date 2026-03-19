@@ -213,6 +213,7 @@
         <div class="form-group" style="flex:0">
           <label>&nbsp;</label>
           <button class="btn btn-primary" onclick="fetchData()">🔄 刷新数据</button>
+          <button class="btn btn-secondary" onclick="showConfig()">⚙️ 配置</button>
         </div>
       </div>
       <div class="status" id="dataStatus"></div>
@@ -492,6 +493,11 @@ function showDashboard() {
   document.getElementById('configCard').style.display = 'none';
   document.getElementById('csvImportCard').style.display = 'none';
   document.getElementById('dashboard').classList.remove('hidden');
+}
+
+function showConfig() {
+  document.getElementById('configCard').style.display = 'block';
+  document.getElementById('csvImportCard').style.display = 'block';
 }
 
 function checkSavedData() {
