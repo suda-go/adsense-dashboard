@@ -99,6 +99,10 @@
         <label>Client Secret</label>
         <input type="password" id="clientSecret" placeholder="在此粘贴 Client Secret">
       </div>
+      <div class="form-group" style="flex:1">
+        <label>Publisher ID（可选）</label>
+        <input type="text" id="pubId" placeholder="pub-XXXXXXXXXXXXXXXX">
+      </div>
     </div>
     <div class="form-row">
       <button class="btn btn-primary" onclick="startOAuth()">🔗 授权 Google 账号</button>
@@ -324,6 +328,7 @@ function loadConfig() {
     if (c) {
       document.getElementById('clientId').value = c.clientId || '';
       document.getElementById('clientSecret').value = c.clientSecret || '';
+      document.getElementById('pubId').value = c.pubId || '';
       if (c.accessToken) {
         accessToken = c.accessToken;
         console.log('[AdSense] Token loaded:', accessToken.substring(0, 20) + '...');
@@ -339,6 +344,16 @@ function loadConfig() {
       console.log('[AdSense] No saved config');
     }
   } catch(e) { console.error('[AdSense] loadConfig error:', e); }
+}
+
+function saveConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+    c.clientId = document.getElementById('clientId').value.trim();
+    c.clientSecret = document.getElementById('clientSecret').value.trim();
+    c.pubId = document.getElementById('pubId')?.value?.trim() || '';
+    localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  } catch(e) { console.error('[AdSense] saveConfig error:', e); }
 }
 
 async function refreshToken(c) {
@@ -527,7 +542,24 @@ async function loadAccounts() {
     document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
     if (accounts.length > 0) fetchData();
   } catch(e) {
-    document.getElementById('dataStatus').textContent = '❌ ' + e.message;
+    // v2/accounts 404时，尝试用publisher ID直接访问
+    console.log('[AdSense] v2/accounts失败，尝试直接用publisher ID...');
+    const pubId = document.getElementById('pubId')?.value?.trim();
+    if (pubId) {
+      try {
+        const data = await apiGet(apiUrl(`https://adsense.googleapis.com/v2/accounts/${pubId}`));
+        accounts = [data];
+        const sel = document.getElementById('accountSelect');
+        sel.innerHTML = `<option value="${data.name}">${data.displayName || data.name}</option>`;
+        document.getElementById('dataStatus').textContent = `✅ 已加载账号: ${data.displayName || data.name}`;
+        fetchData();
+        return;
+      } catch(e2) {
+        document.getElementById('dataStatus').textContent = '❌ 账号加载失败: ' + e.message + ' | 直接访问: ' + e2.message;
+        return;
+      }
+    }
+    document.getElementById('dataStatus').innerHTML = '❌ ' + e.message + '<br><small>提示：如果API返回404，请在下方填入Publisher ID（格式：pub-XXXXXXXXXXXXXXXX）</small>';
   }
 }
 
