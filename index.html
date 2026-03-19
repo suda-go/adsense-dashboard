@@ -442,7 +442,7 @@ async function testConnection() {
   try {
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 15000);
-    const resp = await fetch(apiUrl('https://adsense.googleapis.com/v2/accounts'), {
+    const resp = await fetch(apiUrl('https://www.googleapis.com/adsense/v1.4/accounts'), {
       headers: { 'Authorization': 'Bearer ' + accessToken },
       signal: ctrl.signal,
     });
@@ -535,10 +535,10 @@ async function apiGet(url) {
 async function loadAccounts() {
   document.getElementById('dataStatus').textContent = '正在加载账号...';
   try {
-    const data = await apiGet(apiUrl('https://adsense.googleapis.com/v2/accounts'));
-    accounts = data.accounts || [];
+    const data = await apiGet(apiUrl('https://www.googleapis.com/adsense/v1.4/accounts'));
+    accounts = data.items || data.accounts || [];
     const sel = document.getElementById('accountSelect');
-    sel.innerHTML = accounts.map(a => `<option value="${a.name}">${a.displayName || a.name}</option>`).join('');
+    sel.innerHTML = accounts.map(a => `<option value="${a.id || a.name}">${a.name || a.displayName || a.id}</option>`).join('');
     document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
     if (accounts.length > 0) fetchData();
   } catch(e) {
@@ -547,10 +547,10 @@ async function loadAccounts() {
     const pubId = document.getElementById('pubId')?.value?.trim();
     if (pubId) {
       try {
-        const data = await apiGet(apiUrl(`https://adsense.googleapis.com/v2/accounts/${pubId}`));
+        const data = await apiGet(apiUrl(`https://www.googleapis.com/adsense/v1.4/accounts/${pubId}`));
         accounts = [data];
         const sel = document.getElementById('accountSelect');
-        sel.innerHTML = `<option value="${data.name}">${data.displayName || data.name}</option>`;
+        sel.innerHTML = `<option value="${data.id || data.name}">${data.name || data.displayName || data.id}</option>`;
         document.getElementById('dataStatus').textContent = `✅ 已加载账号: ${data.displayName || data.name}`;
         fetchData();
         return;
@@ -622,34 +622,39 @@ async function fetchData() {
   if (!account) return;
   const { startDate, endDate, range, label } = getDateRange();
   document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
-  const reportUrl = apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate`);
-  console.log('[AdSense] Account value:', account, 'URL will be:', reportUrl);
+
+  // v1.4 API uses GET with query params
+  function buildReportUrl(metrics, dimensions) {
+    const params = new URLSearchParams();
+    params.set('startDate.year', startDate.year);
+    params.set('startDate.month', startDate.month);
+    params.set('startDate.day', startDate.day);
+    params.set('endDate.year', endDate.year);
+    params.set('endDate.month', endDate.month);
+    params.set('endDate.day', endDate.day);
+    metrics.forEach(m => params.append('metric', m));
+    dimensions.forEach(d => params.append('dimension', d));
+    return apiUrl(`https://www.googleapis.com/adsense/v1.4/${account}/reports?${params.toString()}`);
+  }
+
+  console.log('[AdSense] Account:', account);
 
   try {
-    // Build report request body
-    function buildBody(metrics, dimensions) {
-      return {
-        dateRange: 'CUSTOM',
-        startDate, endDate,
-        metrics, dimensions,
-      };
-    }
-
     // Fetch daily report
-    const dailyBody = buildBody(
+    const dailyUrl = buildReportUrl(
       ['EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS', 'PAGE_VIEWS_CTR', 'PAGE_VIEWS_RPM'],
       ['DATE']
     );
-    const data = await apiPost(reportUrl, dailyBody);
+    const data = await apiGet(dailyUrl);
     const rows = data.rows || [];
 
     // Fetch by country
-    const countryBody = buildBody(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE']);
-    const countryData = await apiPost(reportUrl, countryBody).catch(() => ({rows:[]}));
+    const countryUrl = buildReportUrl(['EARNINGS', 'PAGE_VIEWS', 'PAGE_VIEWS_RPM'], ['COUNTRY_CODE']);
+    const countryData = await apiGet(countryUrl).catch(() => ({rows:[]}));
 
     // Fetch by platform
-    const platBody = buildBody(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM']);
-    const platData = await apiPost(reportUrl, platBody).catch(() => ({rows:[]}));
+    const platUrl = buildReportUrl(['EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
+    const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
 
     const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], startDate, endDate, fetchedAt: Date.now() };
     localStorage.setItem(DATA_KEY, JSON.stringify(result));
@@ -664,7 +669,19 @@ async function fetchData() {
 
 // ===== RENDER =====
 function parseRow(row) {
-  // AdSense API v2: cells array has [dimensions..., metrics...]
+  // v1.4: row is an array [date, earnings, pageViews, clicks, impressions, ctr, rpm]
+  // v2: row.cells is array of {value: ...}
+  if (Array.isArray(row)) {
+    return {
+      date: row[0],
+      earnings: parseFloat(row[1] || 0),
+      pageViews: parseInt(row[2] || 0),
+      clicks: parseInt(row[3] || 0),
+      impressions: parseInt(row[4] || 0),
+      ctr: parseFloat(row[5] || 0) * 100,
+      rpm: parseFloat(row[6] || 0),
+    };
+  }
   const cells = row.cells || [];
   return {
     date: cells[0]?.value,
@@ -672,28 +689,25 @@ function parseRow(row) {
     pageViews: parseInt(cells[2]?.value || 0),
     clicks: parseInt(cells[3]?.value || 0),
     impressions: parseInt(cells[4]?.value || 0),
-    ctr: parseFloat(cells[5]?.value || 0) * 100, // API returns as decimal
+    ctr: parseFloat(cells[5]?.value || 0) * 100,
     rpm: parseFloat(cells[6]?.value || 0),
   };
 }
 
 function parseCountryRow(row) {
+  if (Array.isArray(row)) {
+    return { code: row[0], earnings: parseFloat(row[1] || 0), pageViews: parseInt(row[2] || 0), rpm: parseFloat(row[3] || 0) };
+  }
   const cells = row.cells || [];
-  return {
-    code: cells[0]?.value,
-    earnings: parseFloat(cells[1]?.value || 0),
-    pageViews: parseInt(cells[2]?.value || 0),
-    rpm: parseFloat(cells[3]?.value || 0),
-  };
+  return { code: cells[0]?.value, earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0), rpm: parseFloat(cells[3]?.value || 0) };
 }
 
 function parsePlatRow(row) {
+  if (Array.isArray(row)) {
+    return { platform: row[0] || 'Unknown', earnings: parseFloat(row[1] || 0), pageViews: parseInt(row[2] || 0) };
+  }
   const cells = row.cells || [];
-  return {
-    platform: cells[0]?.value || 'Unknown',
-    earnings: parseFloat(cells[1]?.value || 0),
-    pageViews: parseInt(cells[2]?.value || 0),
-  };
+  return { platform: cells[0]?.value || 'Unknown', earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0) };
 }
 
 function renderDashboard(result) {
