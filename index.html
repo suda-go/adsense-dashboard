@@ -148,6 +148,20 @@
     </div>
   </div>
 
+  <!-- CSV Import -->
+  <div class="config-card" id="csvImportCard">
+    <h2>📁 导入 CSV 数据</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">
+      从 AdSense 后台导出 CSV 文件后，直接选择上传。支持日期、浏览量、点击、展示、CTR、RPM、收入等列。
+    </p>
+    <div style="display:flex;gap:12px;align-items:center">
+      <input type="file" id="csvFile" accept=".csv,.tsv,.txt" style="flex:1">
+      <button class="btn btn-primary" onclick="importCSV()">📤 导入</button>
+      <button class="btn btn-secondary" onclick="loadDemoData()">🎮 加载示例</button>
+    </div>
+    <div class="status" id="csvStatus"></div>
+  </div>
+
   <!-- Dashboard (hidden until auth) -->
   <div id="dashboard" class="hidden">
     <!-- KPI -->
@@ -470,8 +484,28 @@ function setAccessToken(token, refreshToken, expiresIn) {
 function onAuthSuccess() {
   document.getElementById('authStatus').innerHTML = '✅ 已授权';
   document.getElementById('authStatus').style.color = '#34A853';
-  document.getElementById('dashboard').classList.remove('hidden');
+  showDashboard();
   loadAccounts();
+}
+
+function showDashboard() {
+  document.getElementById('configCard').style.display = 'none';
+  document.getElementById('csvImportCard').style.display = 'none';
+  document.getElementById('dashboard').classList.remove('hidden');
+}
+
+function checkSavedData() {
+  const saved = localStorage.getItem(DATA_KEY);
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      if (data.daily && data.daily.length > 0) {
+        showDashboard();
+        renderDashboard(data);
+        document.getElementById('csvStatus').textContent = `📊 已加载缓存 (${data.daily.length} 天)`;
+      }
+    } catch(e) {}
+  }
 }
 
 // Handle OAuth callback
@@ -641,6 +675,116 @@ async function fetchData() {
   }
 }
 
+// ===== CSV IMPORT =====
+function importCSV() {
+  const fileInput = document.getElementById('csvFile');
+  if (!fileInput.files.length) { alert('请先选择 CSV 文件'); return; }
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const result = parseCSV(text);
+      if (result.daily.length === 0) { document.getElementById('csvStatus').textContent = '❌ 未找到有效数据行'; return; }
+      localStorage.setItem(DATA_KEY, JSON.stringify(result));
+      document.getElementById('csvStatus').textContent = `✅ 已导入 ${result.daily.length} 天数据`;
+      showDashboard();
+      renderDashboard(result);
+    } catch(err) {
+      document.getElementById('csvStatus').textContent = '❌ 解析失败: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('文件内容为空');
+  
+  // 检测分隔符（逗号或制表符）
+  const sep = lines[0].includes('\t') ? '\t' : ',';
+  
+  // 解析表头（去掉引号）
+  const headers = lines[0].split(sep).map(h => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+  
+  // 映射列名
+  const colMap = {};
+  headers.forEach((h, i) => {
+    if (h.includes('date') || h.includes('日期') || h === 'day') colMap.date = i;
+    else if (h.includes('page view') || h.includes('浏览') || h === 'impressions') colMap.pageViews = i;
+    else if (h.includes('click') || h.includes('点击')) colMap.clicks = i;
+    else if (h.includes('impression') || h.includes('展示')) colMap.impressions = i;
+    else if (h.includes('ctr') || h.includes('点击率')) colMap.ctr = i;
+    else if (h.includes('rpm') || h.includes('千次')) colMap.rpm = i;
+    else if (h.includes('earning') || h.includes('收入') || h.includes('revenue') || h.includes('estimated')) colMap.earnings = i;
+  });
+
+  if (colMap.date === undefined) throw new Error('未找到日期列');
+  
+  const daily = [];
+  const countryMap = {};
+  
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.replace(/^["']|["']$/g, '').trim());
+    const date = cols[colMap.date];
+    if (!date || !date.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/)) continue;
+    
+    // 收入可能包含货币符号
+    const earnings = parseFloat((cols[colMap.earnings] || '0').replace(/[^\d.-]/g, '')) || 0;
+    const pageViews = parseInt((cols[colMap.pageViews] || '0').replace(/[^\d]/g, '')) || 0;
+    const clicks = parseInt((cols[colMap.clicks] || '0').replace(/[^\d]/g, '')) || 0;
+    const impressions = parseInt((cols[colMap.impressions] || '0').replace(/[^\d]/g, '')) || pageViews;
+    let ctr = parseFloat((cols[colMap.ctr] || '0').replace(/[^\d.]/g, '')) || 0;
+    // CTR 可能是百分比或小数
+    if (ctr > 1) ctr = ctr / 100;
+    const rpm = parseFloat((cols[colMap.rpm] || '0').replace(/[^\d.-]/g, '')) || (pageViews > 0 ? (earnings / pageViews * 1000) : 0);
+    
+    daily.push({ date, earnings, pageViews, clicks, impressions, ctr: ctr * 100, rpm });
+  }
+
+  // 按日期排序
+  daily.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    daily,
+    country: [],
+    platform: [],
+    startDate: daily[0]?.date || '',
+    endDate: daily[daily.length - 1]?.date || '',
+    fetchedAt: Date.now(),
+  };
+}
+
+function loadDemoData() {
+  const daily = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const date = d.toISOString().split('T')[0];
+    const base = 50 + Math.random() * 30;
+    daily.push({
+      date,
+      earnings: parseFloat((base + Math.random() * 20).toFixed(2)),
+      pageViews: Math.floor(8000 + Math.random() * 4000),
+      clicks: Math.floor(100 + Math.random() * 80),
+      impressions: Math.floor(10000 + Math.random() * 5000),
+      ctr: parseFloat((1 + Math.random() * 0.8).toFixed(2)),
+      rpm: parseFloat((5 + Math.random() * 3).toFixed(2)),
+    });
+  }
+  const result = { daily, country: [], platform: [], startDate: daily[0].date, endDate: daily[daily.length - 1].date, fetchedAt: Date.now() };
+  localStorage.setItem(DATA_KEY, JSON.stringify(result));
+  document.getElementById('csvStatus').textContent = '✅ 已加载 30 天示例数据';
+  showDashboard();
+  renderDashboard(result);
+}
+
+function showDashboard() {
+  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('configCard').style.display = 'none';
+}
+
 // ===== RENDER =====
 function parseRow(row) {
   const cells = row.cells || [];
@@ -795,7 +939,7 @@ function detectAnomalies(rows) {
 
 // Init
 loadProxy();
-loadConfig();
+loadConfig(); checkSavedData();
 
 // Check for Chrome extension — poll until found or timeout
 let extCheckCount = 0;
