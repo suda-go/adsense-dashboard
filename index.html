@@ -542,6 +542,24 @@ async function loadAccounts() {
     document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
     if (accounts.length > 0) fetchData();
   } catch(e) {
+    // Try adclients endpoint first (more reliable)
+    console.log('[AdSense] accounts失败，尝试adclients...');
+    try {
+      const acData = await apiGet(apiUrl('https://www.googleapis.com/adsense/v1.4/adclients'));
+      const clients = acData.items || [];
+      if (clients.length > 0) {
+        // Use first adclient's ID as account
+        const clientId = clients[0].id;
+        accounts = [{ id: clientId, name: clients[0].name || clientId }];
+        const sel = document.getElementById('accountSelect');
+        sel.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        document.getElementById('dataStatus').textContent = `✅ 找到广告客户端: ${clients[0].name || clientId}`;
+        fetchData();
+        return;
+      }
+    } catch(e3) {
+      console.log('[AdSense] adclients也失败:', e3.message);
+    }
     // v2/accounts 404时，尝试用publisher ID直接访问
     console.log('[AdSense] v2/accounts失败，尝试直接用publisher ID...');
     const pubId = document.getElementById('pubId')?.value?.trim();
