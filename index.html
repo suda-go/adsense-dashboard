@@ -1049,7 +1049,8 @@ function renderDomainAnalysis(result) {
   }).sort((a, b) => b.earnings - a.earnings);
 
   if (domainRows.length === 0) {
-    document.getElementById('domainChart').parentElement.innerHTML = '<div style="text-align:center;color:#888;padding:40px">暂无域名数据</div>';
+    const el = document.getElementById('domainChart');
+    if (el) el.parentElement.innerHTML = '<div style="text-align:center;color:#888;padding:40px">暂无域名数据（DOMAIN_NAME 维度可能不支持当前账号）</div>';
     return;
   }
 
@@ -1058,6 +1059,16 @@ function renderDomainAnalysis(result) {
 
   // Domain Pie Chart
   if (charts.domain) charts.domain.destroy();
+  // Recreate canvas if it was replaced by error message
+  let domainCanvas = document.getElementById('domainChart');
+  if (!domainCanvas) {
+    const container = document.querySelector('#domainChart')?.parentElement || document.querySelector('.section .card');
+    if (container) {
+      container.innerHTML = '<canvas id="domainChart" height="200"></canvas>';
+      domainCanvas = document.getElementById('domainChart');
+    }
+  }
+  if (!domainCanvas) return;
   const topN = domainRows.slice(0, 10);
   const otherEarnings = domainRows.slice(10).reduce((s, r) => s + r.earnings, 0);
   const chartLabels = [...topN.map(r => r.hostname?.replace('www.', '').slice(0, 25))];
