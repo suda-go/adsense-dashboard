@@ -71,9 +71,13 @@ def auth_login():
 def oauth_callback(code: str, state: str = ""):
     """Handle Google OAuth callback."""
     try:
-        auth.exchange_code(code)
+        creds = auth.exchange_code(code)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth 认证失败: {e}")
+    # On serverless, redirect with refresh_token hint so user can save it as env var
+    refresh_token = creds.refresh_token or ""
+    if refresh_token:
+        return RedirectResponse(url=f"/?auth=ok&refresh_token={refresh_token}")
     return RedirectResponse(url="/")
 
 

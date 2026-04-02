@@ -366,6 +366,19 @@
 
     const $ = id => document.getElementById(id);
 
+    // === Check for refresh_token in URL (after OAuth callback) ===
+    (function checkOAuthReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const rt = params.get('refresh_token');
+      if (rt) {
+        // Clean URL
+        history.replaceState(null, '', '/');
+        // Show token to user for saving as env var
+        const msg = `授权成功！请将以下 Refresh Token 保存到 Vercel 环境变量 GOOGLE_REFRESH_TOKEN 中（仅首次需要）：\n\n${rt}`;
+        setTimeout(() => { alert(msg); }, 500);
+      }
+    })();
+
     // === Auth ===
     async function checkAuth() {
       try {
