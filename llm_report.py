@@ -14,7 +14,16 @@ def generate_insight_report(analysis_bundle: dict) -> str:
     if not config.ANTHROPIC_API_KEY:
         return _fallback_report(analysis_bundle)
 
-    prompt = f"""你是一位资深的广告变现数据分析师，擅长从多维数据中发现因果关系。请根据以下 Google AdSense 全维度数据，撰写一份深度中文分析报告。
+    days = analysis_bundle.get("summary", {}).get("current_days", 30)
+    period_hint = ""
+    if days <= 1:
+        period_hint = "\n注意：这是单日数据（昨天 vs 前天），请重点分析日环比变化，关注当日特殊事件（星期几效应、节假日等）。"
+    elif days <= 3:
+        period_hint = "\n注意：这是近3天数据，请关注短期波动趋势和日内模式。"
+    elif days <= 7:
+        period_hint = "\n注意：这是近7天数据，请关注周内模式和短期趋势。"
+
+    prompt = f"""你是一位资深的广告变现数据分析师，擅长从多维数据中发现因果关系。请根据以下 Google AdSense 全维度数据，撰写一份深度中文分析报告。{period_hint}
 
 ## 分析框架
 

@@ -210,8 +210,10 @@
   <div id="dashboard" class="dash">
     <!-- Date picker -->
     <div class="date-bar">
+      <button class="date-preset active" data-days="1">Yesterday</button>
+      <button class="date-preset" data-days="3">3D</button>
       <button class="date-preset" data-days="7">7D</button>
-      <button class="date-preset active" data-days="30">30D</button>
+      <button class="date-preset" data-days="30">30D</button>
       <button class="date-preset" data-days="90">90D</button>
       <span style="color:var(--text-dim);font-size:13px;margin-left:8px;">Custom:</span>
       <input type="date" class="date-input" id="startDate">
@@ -437,7 +439,7 @@
   (() => {
     let dashData = null;
     let charts = {};
-    let currentDays = 30;
+    let currentDays = 1;
     const $ = id => document.getElementById(id);
     const COLORS = ['#6C5CE7','#00cec9','#e17055','#00b894','#fdcb6e','#0984e3','#e84393','#636e72','#a29bfe','#fab1a0'];
 
