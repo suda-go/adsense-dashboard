@@ -88,11 +88,37 @@ def oauth_callback(code: str, state: str = ""):
         creds = auth.exchange_code(code)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth 认证失败: {e}")
-    # On serverless, redirect with refresh_token hint so user can save it as env var
     refresh_token = creds.refresh_token or ""
+    # Show token on a simple page so user can copy it
     if refresh_token:
-        return RedirectResponse(url=f"/?auth=ok&refresh_token={refresh_token}")
+        return FileResponse(str(config.BASE_DIR / "static" / "index.html"), headers={
+            "X-Refresh-Token": refresh_token,
+        }) if False else RedirectResponse(url=f"/api/auth/token?t={refresh_token}")
     return RedirectResponse(url="/")
+
+
+@app.get("/api/auth/token")
+def show_token(t: str = ""):
+    """Show refresh token for user to copy."""
+    if not t:
+        return {"error": "No token"}
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Token</title>
+    <style>body{{background:#0f0f1a;color:#e0e0e0;font-family:monospace;padding:40px;text-align:center}}
+    .box{{background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:24px;max-width:600px;margin:20px auto;word-break:break-all}}
+    input{{width:100%;padding:12px;background:#25254a;color:#fff;border:1px solid #6C5CE7;border-radius:8px;font-size:14px;margin:12px 0}}
+    button{{padding:10px 24px;background:#6C5CE7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}}
+    button:hover{{background:#5241d0}}
+    .ok{{color:#00b894;margin-top:12px}}</style></head><body>
+    <h2>授权成功!</h2>
+    <div class="box">
+    <p>请复制下方的 Refresh Token:</p>
+    <input id="tk" value="{t}" readonly onclick="this.select()">
+    <button onclick="navigator.clipboard.writeText(document.getElementById('tk').value);document.getElementById('msg').textContent='已复制!'">复制 Token</button>
+    <p id="msg" class="ok"></p>
+    <p style="margin-top:16px;color:#8888a0;font-size:12px">复制后请发给管理员设置为环境变量，或<a href="/" style="color:#6C5CE7">返回首页</a></p>
+    </div></body></html>"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html)
 
 
 # --- Accounts ---
