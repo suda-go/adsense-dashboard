@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 AdSense 收入分析工具 v5.3</title>
+<style>
+  :root {
+    --bg: #F0F2F5; --card: #FFF; --green: #34A853; --orange: #FBBC04; --red: #EA4335; --blue: #4285F4;
+    --text: #1a1a2e; --text2: #666; --border: #E8E8E8; --purple: #9C27B0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  .header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 50%, #40916c 100%); color: white; padding: 32px 0; }
+  .header .container { display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 28px; }
+  .header .subtitle { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 4px; }
+  .header .badge { background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  /* Config Card */
+  .config-card { background: var(--card); border-radius: 12px; padding: 24px; margin-top: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .config-card h2 { font-size: 16px; margin-bottom: 16px; }
+  .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .form-group { flex: 1; min-width: 200px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--green); outline: none; }
+  .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--green); color: white; }
+  .btn-primary:hover { background: #2d8f47; }
+  .btn-primary:disabled { background: #CCC; cursor: not-allowed; }
+  .btn-secondary { background: #F0F0F0; color: var(--text); }
+  .btn-secondary:hover { background: #E0E0E0; }
+
+  .status { font-size: 13px; color: var(--text2); margin-top: 8px; min-height: 20px; }
+  .step { padding: 12px 16px; background: #F8F9FA; border-radius: 8px; margin-bottom: 8px; font-size: 13px; line-height: 1.6; }
+  .step-num { display: inline-block; width: 22px; height: 22px; background: var(--green); color: white; border-radius: 50%; text-align: center; line-height: 22px; font-size: 12px; font-weight: 700; margin-right: 8px; }
+
+  /* KPI */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 24px; }
+  .kpi-card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+  .kpi-card .value { font-size: 28px; font-weight: 800; }
+  .kpi-card .label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .kpi-card .change { font-size: 12px; margin-top: 4px; }
+  .change-up { color: var(--green); }
+  .change-down { color: var(--red); }
+
+  /* Sections */
+  .section { margin-top: 28px; }
+  .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+  .card canvas { max-height: 320px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--border); font-weight: 600; color: var(--text2); }
+  td { padding: 10px 8px; border-bottom: 1px solid #F5F5F5; }
+  tr:hover td { background: #FAFBFF; }
+  .money { font-weight: 700; color: var(--green); }
+
+  .hidden { display: none; }
+
+  /* Alert */
+  .alert-panel { background: #FFF5F5; border: 1px solid #FFE0E0; border-radius: 12px; padding: 20px; margin-top: 24px; }
+  .alert-panel h3 { color: var(--red); margin-bottom: 12px; }
+  .alert-item { padding: 8px 0; border-bottom: 1px solid #FFE8E8; font-size: 13px; }
+  .alert-item:last-child { border-bottom: none; }
+
+  @media (max-width: 768px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="container">
+    <div>
+      <h1>📊 AdSense 收入分析</h1>
+      <div class="subtitle">Google AdSense Revenue Intelligence · <span id="versionNum">v5.3</span></div>
+    </div>
+    <div class="badge">🔄 自动刷新</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- OAuth Config -->
+  <div class="config-card" id="configCard">
+    <h2>🔐 API 配置</h2>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Client ID</label>
+        <input type="text" id="clientId" placeholder="在此粘贴 Client ID">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Client Secret</label>
+        <input type="password" id="clientSecret" placeholder="在此粘贴 Client Secret">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Publisher ID（可选）</label>
+        <input type="text" id="pubId" placeholder="pub-XXXXXXXXXXXXXXXX">
+      </div>
+    </div>
+    <div class="form-row">
+      <button class="btn btn-primary" onclick="startOAuth()">🔗 授权 Google 账号</button>
+      <button class="btn btn-secondary" onclick="usePlayground()">🎮 使用 OAuth Playground</button>
+      <button class="btn btn-secondary" onclick="loadToken()">📋 粘贴 Access Token</button>
+      <button class="btn btn-secondary" onclick="clearAuth()">🗑️ 清除缓存</button>
+      <button class="btn btn-secondary" onclick="testConnection()">🔌 测试连接</button>
+    </div>
+    <div class="status" id="authStatus">未授权</div>
+
+    <div style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-size:13px;color:#888;margin-bottom:8px">🔑 粘贴 Refresh Token（一次授权，永久使用，不掉线）</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="refreshTokenInput" placeholder="1//04xxxxx..." style="flex:1;padding:8px;border-radius:6px;border:1px solid #333;background:var(--bg);color:var(--text);font-size:13px">
+        <button class="btn btn-primary" onclick="saveRefreshToken()">💾 保存</button>
+      </div>
+      <div style="font-size:11px;color:#666;margin-top:6px">
+        获取：打开 OAuth Playground → 齿轮 ⚙️ → Use your own credentials → 填同事的 Client ID/Secret → 搜 adsense → Authorize → Exchange → 复制 refresh_token
+      </div>
+    </div>
+
+    <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:14px">🧩 Chrome 扩展（推荐，一劳永逸）</span>
+      </div>
+      <div id="extStatus" style="font-size:13px;margin-bottom:8px;color:#888">未检测到扩展</div>
+      <ol style="font-size:12px;color:#aaa;margin:0;padding-left:20px;line-height:1.8">
+        <li>下载扩展文件夹 <code>extension/</code>（或手动创建）</li>
+        <li>Chrome 打开 <code>chrome://extensions</code> → 开启「开发者模式」</li>
+        <li>点「加载已解压的扩展程序」→ 选择 extension 文件夹</li>
+        <li>刷新本页面，状态变为 ✅ 即可使用</li>
+      </ol>
+    </div>
+
+    <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:14px">🔗 API 代理（备选方案）</span>
+        <a href="https://workers.cloudflare.com/" target="_blank" style="font-size:12px;color:var(--accent)">部署方法</a>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="proxyUrl" placeholder="https://your-worker.workers.dev" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+        <button class="btn btn-secondary" onclick="saveProxy()" style="padding:8px 12px">保存</button>
+      </div>
+      <div style="font-size:11px;color:#666;margin-top:4px">留空则直连 googleapis.com（需要 CORS 支持）</div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+      <h2>📋 配置步骤</h2>
+      <div class="step"><span class="step-num">1</span>打开 <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> → 新建项目</div>
+      <div class="step"><span class="step-num">2</span>启用 <a href="https://console.cloud.google.com/apis/library/adsense.googleapis.com" target="_blank">AdSense Management API</a></div>
+      <div class="step"><span class="step-num">3</span>配置 OAuth 同意屏幕（外部），添加你的邮箱为测试用户</div>
+      <div class="step"><span class="step-num">4</span>创建 OAuth 客户端 ID（Web 应用），重定向 URI 填 <code>https://developers.google.com/oauthplayground</code></div>
+      <div class="step"><span class="step-num">5</span>复制 Client ID 和 Client Secret 到上方输入框</div>
+    </div>
+  </div>
+
+  <!-- CSV Import -->
+  <div class="config-card" id="csvImportCard">
+    <h2>📁 导入 CSV 数据</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">
+      从 AdSense 后台导出 CSV 文件后，直接选择上传。支持日期、浏览量、点击、展示、CTR、RPM、收入等列。
+    </p>
+    <div style="display:flex;gap:12px;align-items:center">
+      <input type="file" id="csvFile" accept=".csv,.tsv,.txt" style="flex:1">
+      <button class="btn btn-primary" onclick="importCSV()">📤 导入</button>
+      <button class="btn btn-secondary" onclick="loadDemoData()">🎮 加载示例</button>
+    </div>
+    <div class="status" id="csvStatus"></div>
+  </div>
+
+  <!-- Dashboard (hidden until auth) -->
+  <div id="dashboard" class="hidden">
+    <!-- KPI -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="value" id="kpiEarnings">-</div>
+        <div class="label">今日收入</div>
+        <div class="change" id="kpiEarningsChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiRPM">-</div>
+        <div class="label">RPM（千次浏览收入）</div>
+        <div class="change" id="kpiRPMChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiPageViews">-</div>
+        <div class="label">页面浏览量</div>
+        <div class="change" id="kpiPVChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiClicks">-</div>
+        <div class="label">点击次数</div>
+        <div class="change" id="kpiClicksChange">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="value" id="kpiCTR">-</div>
+        <div class="label">点击率</div>
+        <div class="change" id="kpiCTRChange">-</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="config-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label>📊 账号</label>
+          <select id="accountSelect" onchange="onAccountChange()"><option>加载中...</option></select>
+        </div>
+        <div class="form-group">
+          <label>📅 时间范围</label>
+          <select id="dateRange">
+            <option value="today">今天</option>
+            <option value="yesterday">昨天</option>
+            <option value="last7">近7天</option>
+            <option value="last14">近14天</option>
+            <option value="last30" selected>近30天</option>
+            <option value="last90">近90天</option>
+            <option value="last180">近180天</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="fetchData()">🔄 刷新数据</button>
+
+        </div>
+      </div>
+      <div class="status" id="dataStatus"></div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alert-panel hidden" id="alertPanel">
+      <h3>⚠️ 异常告警</h3>
+      <div id="alertList"></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="section">
+      <div class="section-title"><span>📈</span> 收入趋势</div>
+      <div class="card">
+        <canvas id="revenueChart" style="max-height:350px;"></canvas>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>🌍</span> 国家/地区分析</div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>收入 Top 10 国家</h3>
+          <canvas id="countryChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>国家明细表</h3>
+          <div style="max-height:350px;overflow-y:auto;">
+            <table id="countryTable">
+              <thead><tr><th>国家</th><th>收入</th><th>浏览</th><th>RPM</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>📱</span> 平台分析</div>
+      <div class="card">
+        <canvas id="platformChart" style="max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- Domain Analysis -->
+    <div class="section">
+      <div class="section-title"><span>🌐</span> 域名分析</div>
+      <div class="card" style="padding:16px">
+        <canvas id="domainChart" height="200"></canvas>
+        <div style="margin-top:16px;overflow-x:auto">
+          <table id="domainTable">
+            <thead><tr><th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>14天趋势</th><th>变化</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Domain Detail -->
+    <div class="section">
+      <div class="section-title"><span>📋</span> 每日×域名明细</div>
+      <div class="card" style="padding:16px;overflow-x:auto">
+        <table id="dailyDomainTable">
+          <thead><tr><th>日期</th><th>域名</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Period Summary -->
+    <div class="section">
+      <div class="section-title"><span>📊</span> 周期汇总</div>
+      <div class="grid-2">
+        <div class="card" id="periodSummary" style="padding:16px"></div>
+        <div class="card" id="dayOfWeekAnalysis" style="padding:16px"></div>
+      </div>
+    </div>
+
+    <!-- Monthly Comparison -->
+    <div class="section">
+      <div class="section-title"><span>📆</span> 月度对比</div>
+      <div class="card" id="monthlyComparison" style="padding:16px"></div>
+    </div>
+
+    <!-- Deep Analysis -->
+    <div class="section">
+      <div class="section-title"><span>🔍</span> 深度分析</div>
+      <div class="grid-2">
+        <div class="card" id="trendAnalysis" style="padding:16px"></div>
+        <div class="card" id="anomalyReport" style="padding:16px"></div>
+      </div>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="card" id="revenueDistribution" style="padding:16px"></div>
+        <div class="card" id="weeklyTrend" style="padding:16px"></div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="section">
+      <div class="section-title"><span>📋</span> 每日明细</div>
+      <div class="card" style="padding:16px;">
+        <table id="dailyTable">
+          <thead><tr><th>日期</th><th>收入</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>展示</th><th>环比</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:12px;">
+  Generated by 可乐 🦞 · AdSense Revenue Intelligence · 2026-03-18
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+// ===== CONFIG =====
+const AUTH_KEY = 'adsense_auth';
+const DATA_KEY = 'adsense_data';
+
+let accessToken = null;
+let accounts = [];
+let charts = {};
+let proxyUrl = localStorage.getItem('adsense_proxy') || '';
+
+// ===== Proxy Config =====
+function saveProxy() {
+  const url = document.getElementById('proxyUrl')?.value?.trim() || '';
+  proxyUrl = url;
+  localStorage.setItem('adsense_proxy', url);
+}
+
+function loadProxy() {
+  const saved = localStorage.getItem('adsense_proxy') || '';
+  proxyUrl = saved;
+  const el = document.getElementById('proxyUrl');
+  if (el) el.value = saved;
+}
+
+function apiUrl(targetUrl) {
+  // Chrome extension proxy (highest priority)
+  if (window.__adsenseExtension__?.available) return targetUrl;
+  // Cloudflare Worker proxy
+  if (proxyUrl) return proxyUrl + '/' + targetUrl;
+  return targetUrl;
+}
+
+// Check for Chrome extension
+function checkExtension() {
+  if (window.__adsenseExtension__?.available) {
+    console.log('[AdSense] Chrome 扩展已检测到，CORS 代理已激活');
+    const el = document.getElementById('extStatus');
+    if (el) el.innerHTML = '✅ Chrome 扩展已连接（CORS 已解决）';
+    return true;
+  }
+  return false;
+}
+
+// Also listen for postMessage from extension
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'ADSENSE_EXT_LOADED') {
+    console.log('[AdSense] 扩展加载信号收到:', e.data);
+    setTimeout(checkExtension, 100);
+  }
+});
+
+// ===== AUTH =====
+function saveAuth(data) {
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  if (data.accessToken) c.accessToken = data.accessToken;
+  if (data.refreshToken) c.refreshToken = data.refreshToken;
+  if (data.tokenExpiry) c.tokenExpiry = data.tokenExpiry;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+}
+
+function loadConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(AUTH_KEY));
+    if (c) {
+      document.getElementById('clientId').value = c.clientId || '';
+      document.getElementById('clientSecret').value = c.clientSecret || '';
+      document.getElementById('pubId').value = c.pubId || '';
+      if (c.accessToken) {
+        accessToken = c.accessToken;
+        console.log('[AdSense] Token loaded:', accessToken.substring(0, 20) + '...');
+        if (c.tokenExpiry && Date.now() > c.tokenExpiry && c.refreshToken) {
+          refreshToken(c);
+        } else {
+          onAuthSuccess();
+        }
+      } else {
+        console.log('[AdSense] No token found in config');
+      }
+    } else {
+      console.log('[AdSense] No saved config');
+    }
+  } catch(e) { console.error('[AdSense] loadConfig error:', e); }
+}
+
+function saveConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+    c.clientId = document.getElementById('clientId').value.trim();
+    c.clientSecret = document.getElementById('clientSecret').value.trim();
+    c.pubId = document.getElementById('pubId')?.value?.trim() || '';
+    localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  } catch(e) { console.error('[AdSense] saveConfig error:', e); }
+}
+
+async function refreshToken(c) {
+  const clientId = c.clientId || document.getElementById('clientId').value;
+  const clientSecret = c.clientSecret || document.getElementById('clientSecret').value;
+  if (!c.refreshToken || !clientId) return;
+
+  document.getElementById('authStatus').textContent = '正在刷新 Token...';
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId, client_secret: clientSecret,
+        refresh_token: c.refreshToken, grant_type: 'refresh_token',
+      })
+    }).catch(e => { throw new Error('网络错误：无法连接 oauth2.googleapis.com，可能需要开启 VPN/代理。'); });
+    const data = await resp.json();
+    if (data.access_token) {
+      accessToken = data.access_token;
+      saveAuth({ accessToken: data.access_token, tokenExpiry: Date.now() + (data.expires_in || 3600) * 1000 });
+      onAuthSuccess();
+    } else {
+      document.getElementById('authStatus').innerHTML = '⚠️ Token 已过期，请重新授权';
+    }
+  } catch(e) {
+    document.getElementById('authStatus').textContent = '❌ 刷新 Token 失败: ' + e.message;
+  }
+}
+
+function startOAuth() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const clientSecret = document.getElementById('clientSecret').value.trim();
+  if (!clientId || !clientSecret) { alert('请先填写 Client ID 和 Client Secret'); return; }
+  saveConfig();
+
+  const scope = 'https://www.googleapis.com/auth/adsense.readonly';
+  const redirectUri = window.location.origin + window.location.pathname;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
+  // Store for callback
+  sessionStorage.setItem('adsense_oauth_state', JSON.stringify({ clientId, clientSecret, redirectUri }));
+  window.location.href = url;
+}
+
+function usePlayground() {
+  const url = 'https://developers.google.com/oauthplayground/#step1&scopes=https://www.googleapis.com/auth/adsense.readonly';
+  window.open(url, '_blank');
+  setTimeout(() => {
+    const input = prompt('在 OAuth Playground 完成授权后，复制完整响应（包含 refresh_token）粘贴到这里：\n\n提示：点「Response」旁边的复制按钮，或只复制 access_token 也行。');
+    if (input) {
+      try {
+        const json = JSON.parse(input);
+        if (json.access_token) { setAccessToken(json.access_token, json.refresh_token, json.expires_in); return; }
+      } catch(e) {}
+      setAccessToken(input.trim());
+    }
+  }, 500);
+}
+
+function loadToken() {
+  const input = prompt('粘贴 Access Token，或粘贴完整的 OAuth JSON 响应：');
+  if (!input || !input.trim()) return;
+  const trimmed = input.trim();
+  try {
+    const json = JSON.parse(trimmed);
+    if (json.access_token) { setAccessToken(json.access_token, json.refresh_token, json.expires_in); return; }
+  } catch(e) {}
+  setAccessToken(trimmed);
+}
+
+function clearAuth() {
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem('adsense_data');
+  accessToken = null;
+  accounts = [];
+  document.getElementById('authStatus').textContent = '已清除，请重新授权';
+  document.getElementById('dataStatus').textContent = '';
+  document.getElementById('accountSelect').innerHTML = '';
+  alert('已清除所有缓存数据，请刷新页面重新授权。');
+}
+
+async function testConnection() {
+  if (!accessToken) { alert('请先粘贴 Access Token！'); return; }
+  document.getElementById('dataStatus').textContent = '🔌 正在测试连接 googleapis.com ...';
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(apiUrl('https://adsense.googleapis.com/v2/accounts'), {
+      headers: { 'Authorization': 'Bearer ' + accessToken },
+      signal: ctrl.signal,
+    });
+    const text = await resp.text();
+    document.getElementById('dataStatus').innerHTML = `✅ 连接成功！HTTP ${resp.status}<br><pre style="max-height:100px;overflow:auto;background:#111;padding:8px;border-radius:4px">${text.substring(0, 300)}</pre>`;
+  } catch(e) {
+    document.getElementById('dataStatus').innerHTML = `❌ 连接失败: ${e.name} — ${e.message}<br><small>请确认：1) VPN 全局模式 2) 能打开 <a href="https://adsense.googleapis.com/$discovery/rest?version=v2" target="_blank" style="color:#4ecdc4">这个链接</a></small>`;
+  }
+}
+
+function saveRefreshToken() {
+  const input = document.getElementById('refreshTokenInput');
+  const rt = input.value.trim();
+  if (!rt) { alert('请粘贴 Refresh Token'); return; }
+  
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  c.refreshToken = rt;
+  c.clientId = document.getElementById('clientId').value;
+  c.clientSecret = document.getElementById('clientSecret').value;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  
+  // Try to get an access token immediately
+  refreshToken(c);
+}
+
+function setAccessToken(token, refreshToken, expiresIn) {
+  accessToken = token;
+  saveAuth({
+    accessToken: token,
+    refreshToken: refreshToken,
+    tokenExpiry: expiresIn ? Date.now() + expiresIn * 1000 : null,
+  });
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  c.clientId = document.getElementById('clientId').value;
+  c.clientSecret = document.getElementById('clientSecret').value;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(c));
+  onAuthSuccess();
+}
+
+function onAuthSuccess() {
+  document.getElementById('authStatus').innerHTML = '✅ 已授权';
+  document.getElementById('authStatus').style.color = '#34A853';
+  showDashboard();
+  loadAccounts();
+}
+
+function showDashboard() {
+
+  document.getElementById('dashboard').classList.remove('hidden');
+}
+
+// Config is always visible now
+
+function checkSavedData() {
+  const saved = localStorage.getItem(DATA_KEY);
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      if (data.daily && data.daily.length > 0) {
+        showDashboard();
+        renderDashboard(data);
+        document.getElementById('csvStatus').textContent = `📊 已加载缓存 (${data.daily.length} 天)`;
+      }
+    } catch(e) {}
+  }
+}
+
+// Handle OAuth callback
+(function checkOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    // Exchange code for token
+    const state = JSON.parse(sessionStorage.getItem('adsense_oauth_state') || '{}');
+    if (state.clientId) {
+      exchangeCode(code, state);
+    }
+  }
+})();
+
+async function exchangeCode(code, state) {
+  document.getElementById('authStatus').textContent = '正在交换 Token...';
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code, client_id: state.clientId, client_secret: state.clientSecret,
+        redirect_uri: state.redirectUri, grant_type: 'authorization_code',
+      })
+    });
+    const data = await resp.json();
+    if (data.access_token) {
+      setAccessToken(data.access_token, data.refresh_token, data.expires_in);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      document.getElementById('authStatus').textContent = '❌ 授权失败: ' + (data.error_description || data.error);
+    }
+  } catch(e) {
+    document.getElementById('authStatus').textContent = '❌ 授权失败: ' + e.message;
+  }
+}
+
+// ===== API =====
+async function apiGet(url) {
+  let resp;
+  try {
+    console.log('[AdSense] GET', url);
+    resp = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    console.log('[AdSense] Response:', resp.status, resp.statusText);
+  } catch(e) {
+    console.error('[AdSense] Fetch error:', e);
+    throw new Error('网络错误：' + e.message);
+  }
+  if (!resp.ok) {
+    let errMsg = '';
+    try { const err = await resp.json(); errMsg = err.error?.message || JSON.stringify(err.error); } catch(_) {}
+    console.error('[AdSense] API error:', resp.status, errMsg);
+    if (resp.status === 401) throw new Error('Token 已过期，请重新粘贴 Access Token。');
+    throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+  }
+  return resp.json();
+}
+
+async function loadAccounts() {
+  document.getElementById('dataStatus').textContent = '正在加载账号...';
+  try {
+    const data = await apiGet(apiUrl('https://adsense.googleapis.com/v2/accounts'));
+    accounts = data.accounts || [];
+    const sel = document.getElementById('accountSelect');
+    sel.innerHTML = accounts.map(a => `<option value="${a.name}">${a.displayName || a.name}</option>`).join('');
+    document.getElementById('dataStatus').textContent = `找到 ${accounts.length} 个账号`;
+    if (accounts.length > 0) fetchData();
+  } catch(e) {
+    document.getElementById('dataStatus').innerHTML = '❌ ' + e.message + '<br><small>请确认 AdSense Management API 已启用，Token 有效</small>';
+  }
+}
+
+async function apiPost(url, body) {
+  // Auto-refresh if token might be expired
+  const c = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+  if (c.tokenExpiry && Date.now() > c.tokenExpiry - 60000 && c.refreshToken) {
+    await refreshToken(c);
+  }
+  let resp;
+  try {
+    console.log('[AdSense] POST', url, 'token:', accessToken?.substring(0, 20) + '...');
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    console.log('[AdSense] Response:', resp.status, resp.statusText, 'URL:', url);
+  } catch(e) {
+    console.error('[AdSense] Fetch error:', e.name, e.message);
+    throw new Error('网络错误：' + e.message + '（URL: ' + url + '）');
+  }
+  if (!resp.ok) {
+    const rawText = await resp.text().catch(() => '');
+    console.error('[AdSense] Error body:', rawText.substring(0, 500));
+    let errMsg = '';
+    try { const err = JSON.parse(rawText); errMsg = err.error?.message || JSON.stringify(err.error); } catch(_) { errMsg = rawText.substring(0, 200); }
+    console.error('[AdSense] API error:', resp.status, errMsg);
+    if (resp.status === 401) throw new Error('Token 已过期或无效，请重新粘贴 Access Token。错误: ' + errMsg);
+    if (resp.status === 403) throw new Error('权限不足（403），请确认 AdSense 账号已开通 API 访问。错误: ' + errMsg);
+    throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+  }
+  return resp.json();
+}
+
+function getDateRange() {
+  const range = document.getElementById('dateRange').value;
+  const today = new Date();
+  const end = new Date(today);
+  end.setDate(end.getDate() - 1); // yesterday (AdSense data has 1-day delay)
+  const start = new Date(end);
+
+  switch(range) {
+    case 'today': start.setDate(end.getDate()); break;
+    case 'yesterday': start.setDate(end.getDate()); break;
+    case 'last7': start.setDate(end.getDate() - 6); break;
+    case 'last14': start.setDate(end.getDate() - 13); break;
+    case 'last30': start.setDate(end.getDate() - 29); break;
+    case 'last90': start.setDate(end.getDate() - 89); break;
+    case 'last180': start.setDate(end.getDate() - 179); break;
+  }
+  return {
+    startDate: { year: start.getFullYear(), month: start.getMonth() + 1, day: start.getDate() },
+    endDate: { year: end.getFullYear(), month: end.getMonth() + 1, day: end.getDate() },
+    range,
+    label: `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')} ~ ${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`
+  };
+}
+
+async function fetchData() {
+  let account = document.getElementById('accountSelect').value;
+  if (!account) return;
+  const { startDate, endDate, range, label } = getDateRange();
+  document.getElementById('dataStatus').textContent = `正在获取 ${label} 数据...`;
+
+  // 构建 GET 报告 URL（同事的代码用 GET + 查询参数，不是 POST）
+  function buildReportUrl(metrics, dimensions) {
+    const params = new URLSearchParams();
+    params.set('dateRange', 'CUSTOM');
+    params.set('startDate.year', startDate.year);
+    params.set('startDate.month', startDate.month);
+    params.set('startDate.day', startDate.day);
+    params.set('endDate.year', endDate.year);
+    params.set('endDate.month', endDate.month);
+    params.set('endDate.day', endDate.day);
+    metrics.forEach(m => params.append('metrics', m));
+    dimensions.forEach(d => params.append('dimensions', d));
+    return apiUrl(`https://adsense.googleapis.com/v2/${account}/reports:generate?${params.toString()}`);
+  }
+
+  console.log('[AdSense] Account:', account);
+
+  try {
+    // Fetch daily report
+    const dailyUrl = buildReportUrl(['IMPRESSIONS', 'CLICKS', 'ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['DATE']);
+    console.log('[AdSense] Daily URL:', dailyUrl);
+    const data = await apiGet(dailyUrl);
+    const rows = data.rows || [];
+
+    // Fetch by country
+    const countryUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['COUNTRY_CODE']);
+    const countryData = await apiGet(countryUrl).catch(() => ({rows:[]}));
+
+    // Fetch by platform
+    const platUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS'], ['PLATFORM_CODE']);
+    const platData = await apiGet(platUrl).catch(() => ({rows:[]}));
+
+    // Fetch by domain (DOMAIN_NAME)
+    const domainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DOMAIN_NAME']);
+    const domainData = await apiGet(domainUrl).catch(() => ({rows:[]}));
+
+    // Fetch daily by domain
+    const dailyDomainUrl = buildReportUrl(['ESTIMATED_EARNINGS', 'PAGE_VIEWS', 'CLICKS', 'IMPRESSIONS'], ['DATE', 'DOMAIN_NAME']);
+    const dailyDomainData = await apiGet(dailyDomainUrl).catch(() => ({rows:[]}));
+
+    const result = { daily: rows, country: countryData.rows || [], platform: platData.rows || [], domain: domainData.rows || [], dailyDomain: dailyDomainData.rows || [], startDate, endDate, fetchedAt: Date.now() };
+    localStorage.setItem(DATA_KEY, JSON.stringify(result));
+
+    renderDashboard(result);
+    document.getElementById('dataStatus').textContent = `✅ 数据已更新 (${startDate} ~ ${endDate})`;
+
+  } catch(e) {
+    document.getElementById('dataStatus').textContent = '❌ ' + e.message;
+  }
+}
+
+// ===== CSV IMPORT =====
+function importCSV() {
+  const fileInput = document.getElementById('csvFile');
+  if (!fileInput.files.length) { alert('请先选择 CSV 文件'); return; }
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const result = parseCSV(text);
+      if (result.daily.length === 0) { document.getElementById('csvStatus').textContent = '❌ 未找到有效数据行'; return; }
+      localStorage.setItem(DATA_KEY, JSON.stringify(result));
+      document.getElementById('csvStatus').textContent = `✅ 已导入 ${result.daily.length} 天数据`;
+      showDashboard();
+      renderDashboard(result);
+    } catch(err) {
+      document.getElementById('csvStatus').textContent = '❌ 解析失败: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('文件内容为空');
+  
+  // 检测分隔符（逗号或制表符）
+  const sep = lines[0].includes('\t') ? '\t' : ',';
+  
+  // 解析表头（去掉引号）
+  const headers = lines[0].split(sep).map(h => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+  
+  // 映射列名
+  const colMap = {};
+  headers.forEach((h, i) => {
+    if (h.includes('date') || h.includes('日期') || h === 'day') colMap.date = i;
+    else if (h.includes('page view') || h.includes('浏览') || h === 'impressions') colMap.pageViews = i;
+    else if (h.includes('click') || h.includes('点击')) colMap.clicks = i;
+    else if (h.includes('impression') || h.includes('展示')) colMap.impressions = i;
+    else if (h.includes('ctr') || h.includes('点击率')) colMap.ctr = i;
+    else if (h.includes('rpm') || h.includes('千次')) colMap.rpm = i;
+    else if (h.includes('earning') || h.includes('收入') || h.includes('revenue') || h.includes('estimated')) colMap.earnings = i;
+  });
+
+  if (colMap.date === undefined) throw new Error('未找到日期列');
+  
+  const daily = [];
+  const countryMap = {};
+  
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.replace(/^["']|["']$/g, '').trim());
+    const date = cols[colMap.date];
+    if (!date || !date.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/)) continue;
+    
+    // 收入可能包含货币符号
+    const earnings = parseFloat((cols[colMap.earnings] || '0').replace(/[^\d.-]/g, '')) || 0;
+    const pageViews = parseInt((cols[colMap.pageViews] || '0').replace(/[^\d]/g, '')) || 0;
+    const clicks = parseInt((cols[colMap.clicks] || '0').replace(/[^\d]/g, '')) || 0;
+    const impressions = parseInt((cols[colMap.impressions] || '0').replace(/[^\d]/g, '')) || pageViews;
+    let ctr = parseFloat((cols[colMap.ctr] || '0').replace(/[^\d.]/g, '')) || 0;
+    // CTR 可能是百分比或小数
+    if (ctr > 1) ctr = ctr / 100;
+    const rpm = parseFloat((cols[colMap.rpm] || '0').replace(/[^\d.-]/g, '')) || (pageViews > 0 ? (earnings / pageViews * 1000) : 0);
+    
+    daily.push({ date, earnings, pageViews, clicks, impressions, ctr: ctr * 100, rpm });
+  }
+
+  // 按日期排序
+  daily.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    daily,
+    country: [],
+    platform: [],
+    startDate: daily[0]?.date || '',
+    endDate: daily[daily.length - 1]?.date || '',
+    fetchedAt: Date.now(),
+  };
+}
+
+function loadDemoData() {
+  const daily = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const date = d.toISOString().split('T')[0];
+    const base = 50 + Math.random() * 30;
+    daily.push({
+      date,
+      earnings: parseFloat((base + Math.random() * 20).toFixed(2)),
+      pageViews: Math.floor(8000 + Math.random() * 4000),
+      clicks: Math.floor(100 + Math.random() * 80),
+      impressions: Math.floor(10000 + Math.random() * 5000),
+      ctr: parseFloat((1 + Math.random() * 0.8).toFixed(2)),
+      rpm: parseFloat((5 + Math.random() * 3).toFixed(2)),
+    });
+  }
+  const result = { daily, country: [], platform: [], startDate: daily[0].date, endDate: daily[daily.length - 1].date, fetchedAt: Date.now() };
+  localStorage.setItem(DATA_KEY, JSON.stringify(result));
+  document.getElementById('csvStatus').textContent = '✅ 已加载 30 天示例数据';
+  showDashboard();
+  renderDashboard(result);
+}
+
+
+
+// ===== RENDER =====
+function parseRow(row) {
+  const cells = row.cells || [];
+  // Metrics: IMPRESSIONS, CLICKS, ESTIMATED_EARNINGS, PAGE_VIEWS
+  const impressions = parseInt(cells[1]?.value || 0);
+  const clicks = parseInt(cells[2]?.value || 0);
+  const earnings = parseFloat(cells[3]?.value || 0);
+  const pageViews = parseInt(cells[4]?.value || 0);
+  const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+  const rpm = pageViews > 0 ? (earnings / pageViews * 1000) : 0;
+  return {
+    date: cells[0]?.value,
+    earnings,
+    pageViews,
+    clicks,
+    impressions,
+    ctr,
+    rpm,
+  };
+}
+
+function parseCountryRow(row) {
+  const cells = row.cells || [];
+  return { code: cells[0]?.value, earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0), rpm: parseFloat(cells[3]?.value || 0) };
+}
+
+function parsePlatRow(row) {
+  const cells = row.cells || [];
+  return { platform: cells[0]?.value || 'Unknown', earnings: parseFloat(cells[1]?.value || 0), pageViews: parseInt(cells[2]?.value || 0) };
+}
+
+function renderDashboard(result) {
+  const rows = result.daily.map(parseRow);
+  if (rows.length === 0) { document.getElementById('dataStatus').textContent = '无数据'; return; }
+
+  // KPIs - use latest day
+  const latest = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+
+  document.getElementById('kpiEarnings').textContent = '$' + latest.earnings.toFixed(2);
+  document.getElementById('kpiRPM').textContent = '$' + latest.rpm.toFixed(2);
+  document.getElementById('kpiPageViews').textContent = latest.pageViews.toLocaleString();
+  document.getElementById('kpiClicks').textContent = latest.clicks.toLocaleString();
+  document.getElementById('kpiCTR').textContent = latest.ctr.toFixed(2) + '%';
+
+  if (prev) {
+    setChange('kpiEarningsChange', latest.earnings, prev.earnings, '$');
+    setChange('kpiRPMChange', latest.rpm, prev.rpm, '$');
+    setChange('kpiPVChange', latest.pageViews, prev.pageViews);
+    setChange('kpiClicksChange', latest.clicks, prev.clicks);
+    setChange('kpiCTRChange', latest.ctr, prev.ctr, '', '%');
+  }
+
+  // Revenue Trend Chart with 7-day MA
+  if (charts.revenue) charts.revenue.destroy();
+  const ma7 = rows.map((r, i) => {
+    const slice = rows.slice(Math.max(0, i-6), i+1);
+    return parseFloat((slice.reduce((s,x) => s + x.earnings, 0) / slice.length).toFixed(2));
+  });
+  charts.revenue = new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+      labels: rows.map(r => r.date?.slice(5)),
+      datasets: [
+        { label: '日收入 ($)', data: rows.map(r => r.earnings), borderColor: '#34A853', backgroundColor: 'rgba(52,168,83,0.1)', fill: true, tension: 0.3, yAxisID: 'y', pointRadius: 3 },
+        { label: '7日均线 ($)', data: ma7, borderColor: '#FBBC04', borderWidth: 2, borderDash: [8,4], fill: false, tension: 0.3, yAxisID: 'y', pointRadius: 0 },
+        { label: 'RPM ($)', data: rows.map(r => r.rpm), borderColor: '#4285F4', borderDash: [5,5], fill: false, tension: 0.3, yAxisID: 'y1', pointRadius: 2 },
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { position: 'left', title: { display: true, text: '收入 ($)' } },
+        y1: { position: 'right', title: { display: true, text: 'RPM ($)' }, grid: { drawOnChartArea: false } },
+      }
+    }
+  });
+
+  // Country Chart
+  const countryRows = result.country.map(parseCountryRow).sort((a,b) => b.earnings - a.earnings).slice(0, 10);
+
+  if (charts.country) charts.country.destroy();
+  charts.country = new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: {
+      labels: countryRows.map(r => r.code),
+      datasets: [{ label: '收入 ($)', data: countryRows.map(r => r.earnings), backgroundColor: '#34A853', borderRadius: 4 }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+
+  // Country Table with percentage
+  const totalCountryEarnings = countryRows.reduce((s,r) => s + r.earnings, 0);
+  const ctbody = document.querySelector('#countryTable tbody');
+  ctbody.innerHTML = countryRows.map(r => {
+    const pct = totalCountryEarnings > 0 ? (r.earnings / totalCountryEarnings * 100).toFixed(1) : '0';
+    return `<tr><td>${r.code}</td><td class="money">$${r.earnings.toFixed(2)} <small style="color:#888">(${pct}%)</small></td><td>${r.pageViews.toLocaleString()}</td><td>$${r.rpm.toFixed(2)}</td></tr>`;
+  }).join('');
+
+  // Platform Chart
+  const platRows = result.platform.map(parsePlatRow);
+
+  if (charts.platform) charts.platform.destroy();
+  charts.platform = new Chart(document.getElementById('platformChart'), {
+    type: 'doughnut',
+    data: {
+      labels: platRows.map(r => r.platform),
+      datasets: [{ data: platRows.map(r => r.earnings), backgroundColor: ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Daily Table with day-over-day change
+  const dtbody = document.querySelector('#dailyTable tbody');
+  dtbody.innerHTML = rows.slice().reverse().map((r, idx, arr) => {
+    const prevIdx = idx + 1 < arr.length ? idx + 1 : -1;
+    let changeStr = '-';
+    if (prevIdx >= 0) {
+      const prev = arr[prevIdx];
+      const pct = prev.earnings > 0 ? ((r.earnings - prev.earnings) / prev.earnings * 100) : 0;
+      const isUp = pct >= 0;
+      changeStr = `<span style="color:${isUp ? '#34A853' : '#EA4335'}">${isUp ? '↑' : '↓'}${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+    return `<tr><td>${r.date}</td><td class="money">$${r.earnings.toFixed(2)}</td><td>${r.pageViews.toLocaleString()}</td><td>${r.clicks.toLocaleString()}</td><td>${r.ctr.toFixed(2)}%</td><td>$${r.rpm.toFixed(2)}</td><td>${r.impressions.toLocaleString()}</td><td>${changeStr}</td></tr>`;
+  }).join('');
+
+  // Domain Analysis
+  renderDomainAnalysis(result);
+
+  // Period Analysis
+  renderPeriodAnalysis(rows);
+  
+  // Deep Analysis
+  renderDeepAnalysis(rows);
+  
+  // Anomaly Detection
+  detectAnomalies(rows);
+}
+
+function setChange(id, current, prev, prefix='', suffix='') {
+  if (!prev) { document.getElementById(id).textContent = '-'; return; }
+  const pct = ((current - prev) / Math.max(prev, 0.001) * 100).toFixed(1);
+  const el = document.getElementById(id);
+  const isUp = current >= prev;
+  el.textContent = `${isUp ? '↑' : '↓'} ${prefix}${Math.abs(current - prev).toFixed ? Math.abs(current - prev).toFixed(2) : Math.abs(current - prev)}${suffix} (${pct}%)`;
+  el.className = 'change ' + (isUp ? 'change-up' : 'change-down');
+}
+
+// Domain Analysis
+function renderDomainAnalysis(result) {
+  const domainRows = (result.domain || []).map(row => {
+    const cells = row.cells || [];
+    return {
+      hostname: cells[0]?.value || 'Unknown',
+      earnings: parseFloat(cells[1]?.value || 0),
+      pageViews: parseInt(cells[2]?.value || 0),
+      clicks: parseInt(cells[3]?.value || 0),
+      impressions: parseInt(cells[4]?.value || 0),
+    };
+  }).sort((a, b) => b.earnings - a.earnings);
+
+  if (domainRows.length === 0) {
+    const el = document.getElementById('domainChart');
+    if (el) el.parentElement.innerHTML = '<div style="text-align:center;color:#888;padding:40px">暂无域名数据（DOMAIN_NAME 维度可能不支持当前账号）</div>';
+    return;
+  }
+
+  const totalDomainEarnings = domainRows.reduce((s, r) => s + r.earnings, 0);
+  const totalPV = domainRows.reduce((s, r) => s + r.pageViews, 0);
+
+  // Domain Pie Chart
+  if (charts.domain) charts.domain.destroy();
+  // Recreate canvas if it was replaced by error message
+  let domainCanvas = document.getElementById('domainChart');
+  if (!domainCanvas) {
+    const container = document.querySelector('#domainChart')?.parentElement || document.querySelector('.section .card');
+    if (container) {
+      container.innerHTML = '<canvas id="domainChart" height="200"></canvas>';
+      domainCanvas = document.getElementById('domainChart');
+    }
+  }
+  if (!domainCanvas) return;
+  const topN = domainRows.slice(0, 10);
+  const otherEarnings = domainRows.slice(10).reduce((s, r) => s + r.earnings, 0);
+  const chartLabels = [...topN.map(r => r.hostname?.replace('www.', '').slice(0, 25))];
+  const chartData = [...topN.map(r => r.earnings)];
+  if (otherEarnings > 0) { chartLabels.push('其他'); chartData.push(otherEarnings); }
+  
+  charts.domain = new Chart(document.getElementById('domainChart'), {
+    type: 'doughnut',
+    data: {
+      labels: chartLabels,
+      datasets: [{ data: chartData, backgroundColor: ['#4285F4','#34A853','#FBBC04','#EA4335','#9C27B0','#00BCD4','#FF9800','#795548','#607D8B','#E91E63','#444'], borderWidth: 2, borderColor: '#111' }]
+    },
+    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } } } }
+  });
+
+  // Domain Table with comparison
+  const dailyDomainRows = (result.dailyDomain || []).map(row => {
+    const cells = row.cells || [];
+    return {
+      date: cells[0]?.value,
+      hostname: cells[1]?.value || 'Unknown',
+      earnings: parseFloat(cells[2]?.value || 0),
+      pageViews: parseInt(cells[3]?.value || 0),
+      clicks: parseInt(cells[4]?.value || 0),
+      impressions: parseInt(cells[5]?.value || 0),
+    };
+  });
+
+  // Sparkline trend for each domain
+  const domainDailyMap = {};
+  dailyDomainRows.forEach(r => {
+    if (!domainDailyMap[r.hostname]) domainDailyMap[r.hostname] = {};
+    domainDailyMap[r.hostname][r.date] = r.earnings;
+  });
+  const allDates = [...new Set(dailyDomainRows.map(r => r.date))].sort();
+  const recentDates = allDates.slice(-14); // last 14 days
+
+  // Calculate per-domain trend (first half vs second half)
+  const domainTrend = {};
+  if (allDates.length >= 4) {
+    const midDate = allDates[Math.floor(allDates.length / 2)];
+    domainRows.forEach(d => { domainTrend[d.hostname] = { first: 0, second: 0 }; });
+    dailyDomainRows.forEach(r => {
+      if (domainTrend[r.hostname]) {
+        if (r.date < midDate) domainTrend[r.hostname].first += r.earnings;
+        else domainTrend[r.hostname].second += r.earnings;
+      }
+    });
+  }
+
+  const dtbody = document.querySelector('#domainTable tbody');
+  dtbody.innerHTML = domainRows.map(r => {
+    const pct = totalDomainEarnings > 0 ? (r.earnings / totalDomainEarnings * 100).toFixed(1) : '0';
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
+    const rpm = r.pageViews > 0 ? (r.earnings / r.pageViews * 1000).toFixed(2) : '0';
+    const pvPct = totalPV > 0 ? (r.pageViews / totalPV * 100).toFixed(1) : '0';
+    
+    let trendStr = '-';
+    if (domainTrend[r.hostname]) {
+      const { first, second } = domainTrend[r.hostname];
+      if (first > 0) {
+        const t = ((second - first) / first * 100);
+        trendStr = `<span style="color:${t >= 0 ? '#34A853' : '#EA4335'}">${t >= 0 ? '+' : ''}${t.toFixed(1)}%</span>`;
+      }
+    }
+    
+    // Build sparkline
+    const dayMap = domainDailyMap[r.hostname] || {};
+    const maxDay = Math.max(...recentDates.map(d => dayMap[d] || 0), 0.01);
+    const sparkBars = recentDates.map(d => {
+      const val = dayMap[d] || 0;
+      const h = Math.max(2, (val / maxDay) * 18);
+      const color = val > 0 ? '#34A853' : '#333';
+      return `<div style="display:inline-block;width:4px;height:${h}px;background:${color};margin:0 0.5px;vertical-align:bottom;border-radius:1px" title="${d}: $${val.toFixed(2)}"></div>`;
+    }).join('');
+    
+    return `<tr>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname}</td>
+      <td class="money">$${r.earnings.toFixed(2)}</td>
+      <td>${pct}%</td>
+      <td>${r.pageViews.toLocaleString()} <small style="color:#666">(${pvPct}%)</small></td>
+      <td>${r.clicks.toLocaleString()}</td>
+      <td>${ctr}%</td>
+      <td>$${rpm}</td>
+      <td><div style="display:flex;align-items:flex-end;height:20px">${sparkBars}</div></td>
+      <td>${trendStr}</td>
+    </tr>`;
+  }).join('');
+
+  // Update table header to include trend
+  const dthead = document.querySelector('#domainTable thead tr');
+  if (dthead && !dthead.innerHTML.includes('趋势')) {
+    dthead.innerHTML = '<th>域名</th><th>收入</th><th>占比</th><th>浏览</th><th>点击</th><th>CTR</th><th>RPM</th><th>趋势</th>';
+  }
+
+  // Daily Domain Table (top domains only)
+  const topDomains = domainRows.slice(0, 8).map(r => r.hostname);
+  const filteredDaily = dailyDomainRows.filter(r => topDomains.includes(r.hostname)).sort((a, b) => b.date.localeCompare(a.date) || b.earnings - a.earnings);
+
+  const ddtbody = document.querySelector('#dailyDomainTable tbody');
+  ddtbody.innerHTML = filteredDaily.map(r => {
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) : '0';
+    return `<tr>
+      <td>${r.date}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.hostname}">${r.hostname?.replace('www.','').slice(0,25)}</td>
+      <td class="money">$${r.earnings.toFixed(2)}</td>
+      <td>${r.pageViews.toLocaleString()}</td>
+      <td>${r.clicks.toLocaleString()}</td>
+      <td>${ctr}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// Period Summary & Day-of-Week Analysis
+function renderPeriodAnalysis(rows) {
+  const totalEarnings = rows.reduce((s,r) => s + r.earnings, 0);
+  const totalPV = rows.reduce((s,r) => s + r.pageViews, 0);
+  const totalClicks = rows.reduce((s,r) => s + r.clicks, 0);
+  const totalImpressions = rows.reduce((s,r) => s + r.impressions, 0);
+  const avgDaily = totalEarnings / rows.length;
+  const avgRPM = totalPV > 0 ? (totalEarnings / totalPV * 1000) : 0;
+  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
+  
+  // Best and worst days
+  const sorted = [...rows].sort((a,b) => b.earnings - a.earnings);
+  const bestDay = sorted[0];
+  const worstDay = sorted[sorted.length - 1];
+  
+  // First half vs second half comparison
+  const mid = Math.floor(rows.length / 2);
+  const firstHalf = rows.slice(0, mid);
+  const secondHalf = rows.slice(mid);
+  const firstAvg = firstHalf.reduce((s,r) => s + r.earnings, 0) / firstHalf.length;
+  const secondAvg = secondHalf.reduce((s,r) => s + r.earnings, 0) / secondHalf.length;
+  const periodChange = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg * 100) : 0;
+
+  document.getElementById('periodSummary').innerHTML = `
+    <h3 style="margin-bottom:12px">📈 周期统计 (${rows[0].date} ~ ${rows[rows.length-1].date})</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+      <div>总收入：<b style="color:#34A853">$${totalEarnings.toFixed(2)}</b></div>
+      <div>日均收入：<b>$${avgDaily.toFixed(2)}</b></div>
+      <div>总浏览：<b>${totalPV.toLocaleString()}</b></div>
+      <div>总点击：<b>${totalClicks.toLocaleString()}</b></div>
+      <div>平均 RPM：<b>$${avgRPM.toFixed(2)}</b></div>
+      <div>平均 CTR：<b>${avgCTR.toFixed(2)}%</b></div>
+      <div>最佳日：<b>${bestDay.date.slice(5)}</b> ($${bestDay.earnings.toFixed(2)})</div>
+      <div>最差日：<b>${worstDay.date.slice(5)}</b> ($${worstDay.earnings.toFixed(2)})</div>
+      <div>前半vs后半：<span style="color:${periodChange >= 0 ? '#34A853' : '#EA4335'}">${periodChange >= 0 ? '↑' : '↓'}${Math.abs(periodChange).toFixed(1)}%</span></div>
+      <div>波动系数：<b>${(sorted[0].earnings / Math.max(sorted[sorted.length-1].earnings, 0.01)).toFixed(1)}x</b></div>
+    </div>
+  `;
+
+  // Day of week analysis
+  const dowData = {};
+  const dowNames = ['周日','周一','周二','周三','周四','周五','周六'];
+  rows.forEach(r => {
+    const d = new Date(r.date);
+    const dow = d.getDay();
+    if (!dowData[dow]) dowData[dow] = { earnings: 0, count: 0, pv: 0 };
+    dowData[dow].earnings += r.earnings;
+    dowData[dow].count++;
+    dowData[dow].pv += r.pageViews;
+  });
+
+  const dowAvg = dowNames.map((name, i) => {
+    const d = dowData[i] || { earnings: 0, count: 1, pv: 0 };
+    return { name, avg: d.earnings / d.count, avgPV: d.pv / d.count, count: d.count };
+  });
+
+  const maxDowAvg = Math.max(...dowAvg.map(d => d.avg));
+
+  document.getElementById('dayOfWeekAnalysis').innerHTML = `
+    <h3 style="margin-bottom:12px">📅 星期分析</h3>
+    <div style="font-size:13px">
+      ${dowAvg.map(d => {
+        const barWidth = maxDowAvg > 0 ? (d.avg / maxDowAvg * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:35px">${d.name}</span>
+          <div style="flex:1;background:#222;border-radius:4px;height:20px;overflow:hidden">
+            <div style="width:${barWidth}%;height:100%;background:#34A853;border-radius:4px;min-width:2px"></div>
+          </div>
+          <span style="width:70px;text-align:right">$${d.avg.toFixed(2)}</span>
+          <span style="width:50px;text-align:right;color:#888;font-size:11px">${d.count}天</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#888">
+      最佳：${dowAvg.reduce((a,b) => a.avg > b.avg ? a : b).name} 
+      | 最差：${dowAvg.reduce((a,b) => a.avg < b.avg ? a : b).name}
+    </div>
+  `;
+}
+
+// ===== MONTHLY COMPARISON =====
+function renderMonthlyComparison(rows) {
+  if (rows.length < 28) {
+    document.getElementById('monthlyComparison').innerHTML = '<div style="color:#888;font-size:13px">数据不足28天，无法做月度对比</div>';
+    return;
+  }
+
+  // Group by month
+  const months = {};
+  rows.forEach(r => {
+    const month = r.date.slice(0, 7); // YYYY-MM
+    if (!months[month]) months[month] = { earnings: 0, pv: 0, clicks: 0, impressions: 0, days: 0 };
+    months[month].earnings += r.earnings;
+    months[month].pv += r.pageViews;
+    months[month].clicks += r.clicks;
+    months[month].impressions += r.impressions;
+    months[month].days++;
+  });
+
+  const monthList = Object.entries(months).sort(([a], [b]) => a.localeCompare(b));
+  const maxEarnings = Math.max(...monthList.map(([, m]) => m.earnings));
+
+  let html = '<div style="font-size:13px">';
+  monthList.forEach(([month, data], i) => {
+    const avgDaily = data.earnings / data.days;
+    const rpm = data.pv > 0 ? (data.earnings / data.pv * 1000) : 0;
+    const ctr = data.impressions > 0 ? (data.clicks / data.impressions * 100) : 0;
+    const pct = maxEarnings > 0 ? (data.earnings / maxEarnings * 100) : 0;
+    
+    // MoM change
+    let momStr = '';
+    if (i > 0) {
+      const prevData = monthList[i-1][1];
+      const prevAvg = prevData.earnings / prevData.days;
+      const mom = prevAvg > 0 ? ((avgDaily - prevAvg) / prevAvg * 100) : 0;
+      momStr = `<span style="color:${mom >= 0 ? '#34A853' : '#EA4335'};margin-left:8px">${mom >= 0 ? '+' : ''}${mom.toFixed(1)}% 日均</span>`;
+    }
+
+    html += `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span><b>${month}</b> (${data.days}天)</span>
+        <span>$${data.earnings.toFixed(2)} ${momStr}</span>
+      </div>
+      <div style="background:#222;border-radius:4px;height:18px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4285F4,#34A853);border-radius:4px;min-width:2px"></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:4px;font-size:11px;color:#888">
+        <span>日均 $${avgDaily.toFixed(2)}</span>
+        <span>RPM ${rpm.toFixed(2)}</span>
+        <span>CTR ${ctr.toFixed(2)}%</span>
+        <span>浏览 ${data.pv.toLocaleString()}</span>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  document.getElementById('monthlyComparison').innerHTML = html;
+}
+
+// ===== DEEP ANALYSIS =====
+function renderDeepAnalysis(rows) {
+  renderMonthlyComparison(rows);
+  renderTrendAnalysis(rows);
+  renderAnomalyReport(rows);
+  renderRevenueDistribution(rows);
+  renderWeeklyTrend(rows);
+}
+
+function renderTrendAnalysis(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const n = earnings.length;
+  if (n < 3) return;
+  
+  // Linear regression
+  const meanX = (n - 1) / 2;
+  const meanY = earnings.reduce((a,b) => a+b, 0) / n;
+  let num = 0, den = 0;
+  earnings.forEach((y, x) => { num += (x - meanX) * (y - meanY); den += (x - meanX) ** 2; });
+  const slope = den ? num / den : 0;
+  const intercept = meanY - slope * meanX;
+  
+  // Trend direction
+  const totalChange = slope * n;
+  const pctChange = meanY > 0 ? (totalChange / meanY * 100) : 0;
+  let trendEmoji = '➡️', trendText = '平稳';
+  if (pctChange > 5) { trendEmoji = '📈'; trendText = '上升'; }
+  else if (pctChange < -5) { trendEmoji = '📉'; trendText = '下降'; }
+  
+  // Volatility (coefficient of variation)
+  const std = Math.sqrt(earnings.reduce((s,x) => s + (x - meanY)**2, 0) / n);
+  const cv = meanY > 0 ? (std / meanY * 100) : 0;
+  let volText = '低波动';
+  if (cv > 30) volText = '高波动';
+  else if (cv > 15) volText = '中等波动';
+  
+  // R-squared
+  const predicted = earnings.map((_, x) => intercept + slope * x);
+  const ssRes = earnings.reduce((s, y, i) => s + (y - predicted[i])**2, 0);
+  const ssTot = earnings.reduce((s, y) => s + (y - meanY)**2, 0);
+  const r2 = ssTot > 0 ? (1 - ssRes / ssTot) : 0;
+  
+  // Prediction for next 7 days
+  const predictions = [];
+  for (let i = 0; i < 7; i++) {
+    predictions.push(Math.max(0, intercept + slope * (n + i)));
+  }
+  const predTotal = predictions.reduce((a,b) => a+b, 0);
+
+  document.getElementById('trendAnalysis').innerHTML = `
+    <h3 style="margin-bottom:12px">📈 趋势分析</h3>
+    <div style="font-size:13px">
+      <div style="margin-bottom:8px">${trendEmoji} 趋势方向：<b>${trendText}</b>（周期内变化 ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%）</div>
+      <div style="margin-bottom:8px">📊 波动率：<b>${volText}</b>（CV: ${cv.toFixed(1)}%）</div>
+      <div style="margin-bottom:8px">🎯 趋势拟合度：R² = ${r2.toFixed(3)}（${r2 > 0.7 ? '趋势稳定' : r2 > 0.3 ? '趋势一般' : '趋势不明显'}）</div>
+      <div style="margin-bottom:8px">📉 日均斜率：${slope >= 0 ? '+' : ''}$${slope.toFixed(2)}/天</div>
+      <div style="margin-top:12px;padding:8px;background:#1a1a2e;border-radius:6px">
+        <div style="color:#888;margin-bottom:4px">🔮 未来 7 天预测（线性外推）</div>
+        <div>预估总收入：<b style="color:#34A853">$${predTotal.toFixed(2)}</b></div>
+        <div style="font-size:11px;color:#888">（仅基于历史趋势，实际受周末/节日等因素影响）</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAnomalyReport(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const mean = earnings.reduce((a,b) => a+b, 0) / earnings.length;
+  const std = Math.sqrt(earnings.reduce((s,x) => s + (x - mean)**2, 0) / earnings.length);
+  
+  const anomalies = rows.filter(r => Math.abs(r.earnings - mean) > std * 1.5).map(r => ({
+    ...r,
+    zscore: std > 0 ? ((r.earnings - mean) / std) : 0,
+    direction: r.earnings > mean ? 'up' : 'down',
+  }));
+  
+  const pvMean = rows.reduce((s,r) => s + r.pageViews, 0) / rows.length;
+  const pvStd = Math.sqrt(rows.reduce((s,r) => s + (r.pageViews - pvMean)**2, 0) / rows.length);
+  const pvAnomalies = rows.filter(r => Math.abs(r.pageViews - pvMean) > pvStd * 1.5);
+  
+  let html = `<h3 style="margin-bottom:12px">🚨 异常检测</h3>`;
+  
+  if (anomalies.length === 0 && pvAnomalies.length === 0) {
+    html += `<div style="font-size:13px;color:#34A853">✅ 未检测到显著异常</div>
+    <div style="font-size:11px;color:#888;margin-top:4px">所有数据点在 ±1.5σ 范围内</div>`;
+  } else {
+    html += `<div style="font-size:13px">发现 <b style="color:#EA4335">${anomalies.length}</b> 个收入异常日</div>`;
+    html += `<div style="margin-top:8px;font-size:12px">`;
+    anomalies.forEach(a => {
+      const arrow = a.direction === 'up' ? '🟢 ↑' : '🔴 ↓';
+      const zStr = a.zscore > 0 ? `+${a.zscore.toFixed(1)}` : a.zscore.toFixed(1);
+      html += `<div style="padding:4px 0;border-bottom:1px solid #222">${arrow} ${a.date.slice(5)}: $${a.earnings.toFixed(2)} (z=${zStr}σ, 日均$${mean.toFixed(2)})</div>`;
+    });
+    html += `</div>`;
+    
+    if (pvAnomalies.length > 0) {
+      html += `<div style="margin-top:8px;font-size:12px;color:#888">另有 ${pvAnomalies.length} 个流量异常日</div>`;
+    }
+  }
+  
+  // Count zeros or very low days
+  const zeroDays = rows.filter(r => r.earnings < mean * 0.2);
+  if (zeroDays.length > 0) {
+    html += `<div style="margin-top:8px;padding:6px;background:#2d1f1f;border-radius:4px;font-size:12px">⚠️ ${zeroDays.length} 天收入低于均值 20%：${zeroDays.map(r => r.date.slice(5)).join(', ')}</div>`;
+  }
+  
+  document.getElementById('anomalyReport').innerHTML = html;
+}
+
+function renderRevenueDistribution(rows) {
+  const earnings = rows.map(r => r.earnings);
+  const min = Math.min(...earnings);
+  const max = Math.max(...earnings);
+  const mean = earnings.reduce((a,b) => a+b, 0) / earnings.length;
+  
+  // Create buckets
+  const bucketCount = Math.min(10, rows.length);
+  const bucketSize = (max - min) / bucketCount || 1;
+  const buckets = Array(bucketCount).fill(0);
+  earnings.forEach(e => {
+    const idx = Math.min(Math.floor((e - min) / bucketSize), bucketCount - 1);
+    buckets[idx]++;
+  });
+  
+  const maxBucket = Math.max(...buckets);
+  let html = `<h3 style="margin-bottom:12px">📊 收入分布</h3>`;
+  html += `<div style="font-size:12px">`;
+  buckets.forEach((count, i) => {
+    const low = (min + i * bucketSize).toFixed(0);
+    const high = (min + (i+1) * bucketSize).toFixed(0);
+    const pct = maxBucket > 0 ? (count / maxBucket * 100) : 0;
+    const isMeanBucket = mean >= (min + i*bucketSize) && mean < (min + (i+1)*bucketSize);
+    html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="width:70px;text-align:right;color:#888">$${low}-${high}</span>
+      <div style="flex:1;background:#222;border-radius:3px;height:16px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${isMeanBucket ? '#FBBC04' : '#4285F4'};border-radius:3px;min-width:1px"></div>
+      </div>
+      <span style="width:30px">${count}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div style="margin-top:8px;font-size:11px;color:#888">
+    均值: $${mean.toFixed(2)} | 中位数: $${earnings.sort((a,b)=>a-b)[Math.floor(earnings.length/2)].toFixed(2)} | 范围: $${min.toFixed(2)} - $${max.toFixed(2)}
+  </div>`;
+  
+  document.getElementById('revenueDistribution').innerHTML = html;
+}
+
+function renderWeeklyTrend(rows) {
+  if (rows.length < 14) {
+    document.getElementById('weeklyTrend').innerHTML = '<h3>📅 周度趋势</h3><div style="font-size:13px;color:#888">数据不足 14 天，无法计算周度趋势</div>';
+    return;
+  }
+  
+  // Group by week
+  const weeks = [];
+  let currentWeek = [];
+  rows.forEach((r, i) => {
+    const d = new Date(r.date);
+    currentWeek.push(r);
+    if (d.getDay() === 6 || i === rows.length - 1) {
+      if (currentWeek.length > 0) {
+        const weekEarnings = currentWeek.reduce((s,x) => s + x.earnings, 0);
+        const weekPV = currentWeek.reduce((s,x) => s + x.pageViews, 0);
+        const weekClicks = currentWeek.reduce((s,x) => s + x.clicks, 0);
+        weeks.push({
+          start: currentWeek[0].date,
+          end: currentWeek[currentWeek.length-1].date,
+          earnings: weekEarnings,
+          pv: weekPV,
+          clicks: weekClicks,
+          days: currentWeek.length,
+          avgDaily: weekEarnings / currentWeek.length,
+          rpm: weekPV > 0 ? (weekEarnings / weekPV * 1000) : 0,
+        });
+      }
+      currentWeek = [];
+    }
+  });
+  
+  const maxWeekEarnings = Math.max(...weeks.map(w => w.earnings));
+  
+  let html = `<h3 style="margin-bottom:12px">📅 周度趋势</h3>`;
+  html += `<div style="font-size:12px">`;
+  weeks.forEach((w, i) => {
+    const pct = maxWeekEarnings > 0 ? (w.earnings / maxWeekEarnings * 100) : 0;
+    const wow = i > 0 ? ((w.avgDaily - weeks[i-1].avgDaily) / weeks[i-1].avgDaily * 100) : 0;
+    const wowStr = i > 0 ? `<span style="color:${wow >= 0 ? '#34A853' : '#EA4335'}">${wow >= 0 ? '+' : ''}${wow.toFixed(1)}%</span>` : '';
+    html += `<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span>${w.start.slice(5)} ~ ${w.end.slice(5)} (${w.days}天)</span>
+        <span>$${w.earnings.toFixed(2)} ${wowStr}</span>
+      </div>
+      <div style="background:#222;border-radius:3px;height:14px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4285F4,#34A853);border-radius:3px;min-width:1px"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  
+  document.getElementById('weeklyTrend').innerHTML = html;
+}
+
+function detectAnomalies(rows) {
+  if (rows.length < 7) return;
+  const alerts = [];
+  const n = rows.length;
+  const latest = rows[n - 1];
+  const prev = rows[n - 2];
+  
+  const avg7 = rows.slice(-7);
+  const avgEarnings7 = avg7.reduce((s,r) => s + r.earnings, 0) / avg7.length;
+  const avgRPM7 = avg7.reduce((s,r) => s + r.rpm, 0) / avg7.length;
+  const avgPV7 = avg7.reduce((s,r) => s + r.pageViews, 0) / avg7.length;
+  const avgClicks7 = avg7.reduce((s,r) => s + r.clicks, 0) / avg7.length;
+  const avgCTR7 = avg7.reduce((s,r) => s + r.ctr, 0) / avg7.length;
+  
+  const allEarnings = rows.map(r => r.earnings);
+  const mean = allEarnings.reduce((a,b) => a+b, 0) / n;
+  const std = Math.sqrt(allEarnings.reduce((s,x) => s + (x-mean)**2, 0) / n);
+
+  // === 异常检测 ===
+  const zEarnings = std > 0 ? (latest.earnings - mean) / std : 0;
+  if (Math.abs(zEarnings) > 1.5) {
+    const direction = zEarnings > 0 ? '异常高' : '异常低';
+    const emoji = zEarnings > 0 ? '🟢' : '🔴';
+    alerts.push(`${emoji} 收入${direction}：$${latest.earnings.toFixed(2)} (z=${zEarnings.toFixed(1)}σ，均值$${mean.toFixed(2)})`);
+  }
+
+  if (prev) {
+    const dodChange = prev.earnings > 0 ? ((latest.earnings - prev.earnings) / prev.earnings * 100) : 0;
+    if (Math.abs(dodChange) > 30) {
+      alerts.push(`${dodChange > 0 ? '🟢' : '🔴'} 日环比${dodChange > 0 ? '暴涨' : '暴跌'}：${dodChange > 0 ? '+' : ''}${dodChange.toFixed(1)}%`);
+    }
+  }
+
+  if (latest.earnings < avgEarnings7 * 0.8 && avgEarnings7 > 0) {
+    const drop = ((avgEarnings7 - latest.earnings) / avgEarnings7 * 100).toFixed(0);
+    alerts.push(`🔴 收入下降 ${drop}%：$${latest.earnings.toFixed(2)} vs 7日均值 $${avgEarnings7.toFixed(2)}`);
+  }
+
+  // === 归因分析 ===
+  if (latest.rpm < avgRPM7 * 0.85 && avgRPM7 > 0) {
+    const rpmDrop = ((avgRPM7 - latest.rpm) / avgRPM7 * 100).toFixed(0);
+    alerts.push(`💡 归因→RPM下降${rpmDrop}%（广告单价跌），可能是广告主竞争减少或流量质量变化`);
+  }
+  if (latest.pageViews < avgPV7 * 0.75 && avgPV7 > 0) {
+    const pvDrop = ((avgPV7 - latest.pageViews) / avgPV7 * 100).toFixed(0);
+    alerts.push(`💡 归因→浏览量下降${pvDrop}%（流量跌），检查SEO/搜索流量/站点可访问性`);
+  }
+  if (latest.ctr < avgCTR7 * 0.8 && avgCTR7 > 0) {
+    const ctrDrop = ((avgCTR7 - latest.ctr) / avgCTR7 * 100).toFixed(0);
+    alerts.push(`💡 归因→CTR下降${ctrDrop}%（点击率跌），广告位置/格式/用户行为变化`);
+  }
+
+  // 近14天异常日扫描
+  const recentAnomalies = [];
+  for (let i = Math.max(0, n-14); i < n; i++) {
+    const z = std > 0 ? (rows[i].earnings - mean) / std : 0;
+    if (Math.abs(z) > 1.5) recentAnomalies.push({ day: rows[i], z });
+  }
+  if (recentAnomalies.length > 0 && recentAnomalies.length <= 8) {
+    alerts.push(`📋 近14天异常日：${recentAnomalies.map(a => `${a.day.date.slice(5)}($${a.day.earnings.toFixed(1)},z=${a.z.toFixed(1)})`).join('、')}`);
+  }
+
+  // 连续低于均值
+  let belowStreak = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    if (rows[i].earnings < mean * 0.8) belowStreak++; else break;
+  }
+  if (belowStreak >= 3) alerts.push(`⚠️ 连续${belowStreak}天收入低于均值80%`);
+
+  const panel = document.getElementById('alertPanel');
+  const list = document.getElementById('alertList');
+  if (alerts.length > 0) {
+    panel.classList.remove('hidden');
+    list.innerHTML = alerts.map(a => `<div class="alert-item">${a}</div>`).join('');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+// Init
+loadProxy();
+loadConfig(); checkSavedData();
+
+// Check for Chrome extension — poll until found or timeout
+let extCheckCount = 0;
+const extCheckInterval = setInterval(() => {
+  extCheckCount++;
+  if (checkExtension() || extCheckCount > 20) clearInterval(extCheckInterval);
+}, 300);
+</script>
+</body>
+</html>
