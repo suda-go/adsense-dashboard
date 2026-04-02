@@ -61,12 +61,12 @@ def fetch_report(
         .generate(
             account=account_id,
             dateRange="CUSTOM",
-            **{f"startDate.year": start["year"],
-               "startDate.month": start["month"],
-               "startDate.day": start["day"],
-               "endDate.year": end["year"],
-               "endDate.month": end["month"],
-               "endDate.day": end["day"]},
+            startDate_year=start["year"],
+            startDate_month=start["month"],
+            startDate_day=start["day"],
+            endDate_year=end["year"],
+            endDate_month=end["month"],
+            endDate_day=end["day"],
             dimensions=dimensions,
             metrics=metrics,
         )
