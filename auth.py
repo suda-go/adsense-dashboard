@@ -7,7 +7,8 @@ Supports two storage modes for tokens:
 
 import json
 import os
-from google_auth_oauthlib.flow import Flow
+import urllib.parse
+import requests as http_requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -17,47 +18,55 @@ import config
 # In-memory token cache for serverless (survives within a single instance)
 _token_cache: dict | None = None
 
-
-def _create_flow() -> Flow:
-    """Create OAuth flow from config (no file dependency)."""
-    client_config = {
-        "web": {
-            "client_id": config.GOOGLE_CLIENT_ID,
-            "client_secret": config.GOOGLE_CLIENT_SECRET,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [config.OAUTH_REDIRECT_URI],
-        }
-    }
-    return Flow.from_client_config(
-        client_config,
-        scopes=config.OAUTH_SCOPES,
-        redirect_uri=config.OAUTH_REDIRECT_URI,
-    )
+TOKEN_URI = "https://oauth2.googleapis.com/token"
+AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 
 
 def get_authorization_url() -> tuple[str, str]:
-    """Generate Google OAuth authorization URL."""
-    flow = _create_flow()
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        prompt="consent",
-        include_granted_scopes="true",
-    )
-    return auth_url, state
+    """Generate Google OAuth authorization URL (no PKCE, serverless-safe)."""
+    params = {
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "redirect_uri": config.OAUTH_REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(config.OAUTH_SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true",
+    }
+    auth_url = f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
+    return auth_url, ""
 
 
 def exchange_code(code: str) -> Credentials:
-    """Exchange authorization code for credentials and save token."""
+    """Exchange authorization code for credentials (direct HTTP, no PKCE)."""
     global _token_cache
-    flow = _create_flow()
-    flow.fetch_token(code=code)
-    creds = flow.credentials
 
-    token_data = {
+    resp = http_requests.post(TOKEN_URI, data={
+        "code": code,
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_secret": config.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": config.OAUTH_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    })
+
+    if resp.status_code != 200:
+        raise Exception(f"Token exchange failed: {resp.text}")
+
+    token_data = resp.json()
+
+    creds = Credentials(
+        token=token_data.get("access_token"),
+        refresh_token=token_data.get("refresh_token"),
+        token_uri=TOKEN_URI,
+        client_id=config.GOOGLE_CLIENT_ID,
+        client_secret=config.GOOGLE_CLIENT_SECRET,
+        scopes=token_data.get("scope", "").split(),
+    )
+
+    save_data = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
+        "token_uri": TOKEN_URI,
         "client_id": creds.client_id,
         "client_secret": creds.client_secret,
         "scopes": list(creds.scopes or []),
@@ -67,12 +76,12 @@ def exchange_code(code: str) -> Credentials:
     try:
         config.TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(config.TOKEN_PATH, "w") as f:
-            json.dump(token_data, f)
+            json.dump(save_data, f)
     except OSError:
         pass
 
     # Cache in memory (works on serverless)
-    _token_cache = token_data
+    _token_cache = save_data
 
     return creds
 
@@ -104,7 +113,7 @@ def load_credentials() -> Credentials | None:
             token_data = {
                 "token": None,
                 "refresh_token": refresh_token,
-                "token_uri": "https://oauth2.googleapis.com/token",
+                "token_uri": TOKEN_URI,
                 "client_id": config.GOOGLE_CLIENT_ID,
                 "client_secret": config.GOOGLE_CLIENT_SECRET,
             }
@@ -115,7 +124,7 @@ def load_credentials() -> Credentials | None:
     creds = Credentials(
         token=token_data.get("token"),
         refresh_token=token_data.get("refresh_token"),
-        token_uri=token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+        token_uri=token_data.get("token_uri", TOKEN_URI),
         client_id=token_data.get("client_id") or config.GOOGLE_CLIENT_ID,
         client_secret=token_data.get("client_secret") or config.GOOGLE_CLIENT_SECRET,
         scopes=token_data.get("scopes"),
@@ -125,7 +134,6 @@ def load_credentials() -> Credentials | None:
     if (not creds.valid or creds.expired) and creds.refresh_token:
         try:
             creds.refresh(Request())
-            # Update cache
             _token_cache = {
                 "token": creds.token,
                 "refresh_token": creds.refresh_token,
@@ -134,7 +142,6 @@ def load_credentials() -> Credentials | None:
                 "client_secret": creds.client_secret,
                 "scopes": list(creds.scopes or []),
             }
-            # Try to save to file
             try:
                 with open(config.TOKEN_PATH, "w") as f:
                     json.dump(_token_cache, f)
