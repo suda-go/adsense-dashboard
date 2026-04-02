@@ -49,8 +49,8 @@ def ensure_client_secrets():
 ADSENSE_ACCOUNT_ID = os.getenv("ADSENSE_ACCOUNT_ID", "")
 
 # Anthropic
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "").strip()
 
 # Cache
 DB_PATH = _writable_base / "adsense_cache.db"

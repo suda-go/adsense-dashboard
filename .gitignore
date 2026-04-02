@@ -6,3 +6,4 @@ credentials/token.json
 credentials/client_secret.json
 !credentials/.gitkeep
 .venv/
+.vercel
