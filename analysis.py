@@ -5,10 +5,7 @@ import statistics
 
 
 def compare_periods(current: list[dict], previous: list[dict]) -> dict:
-    """Compare aggregated metrics between two periods.
-
-    Returns dict with total values and percentage changes.
-    """
+    """Compare aggregated metrics between two periods."""
     def _sum_metric(data, key):
         return sum(float(r.get(key, 0)) for r in data)
 
@@ -27,7 +24,7 @@ def compare_periods(current: list[dict], previous: list[dict]) -> dict:
             "change_pct": round(pct, 2),
         }
 
-    # RPM (revenue per 1000 page views)
+    # RPM
     cur_pv = _sum_metric(current, "PAGE_VIEWS")
     prev_pv = _sum_metric(previous, "PAGE_VIEWS")
     cur_rpm = (_sum_metric(current, "ESTIMATED_EARNINGS") / cur_pv * 1000) if cur_pv else 0
@@ -41,6 +38,32 @@ def compare_periods(current: list[dict], previous: list[dict]) -> dict:
         "change_pct": round(rpm_pct, 2),
     }
 
+    # CTR
+    cur_clicks = _sum_metric(current, "CLICKS")
+    prev_clicks = _sum_metric(previous, "CLICKS")
+    cur_ctr = (cur_clicks / cur_pv * 100) if cur_pv else 0
+    prev_ctr = (prev_clicks / prev_pv * 100) if prev_pv else 0
+    ctr_delta = cur_ctr - prev_ctr
+    ctr_pct = (ctr_delta / prev_ctr * 100) if prev_ctr else 0
+    result["CTR"] = {
+        "current": round(cur_ctr, 4),
+        "previous": round(prev_ctr, 4),
+        "delta": round(ctr_delta, 4),
+        "change_pct": round(ctr_pct, 2),
+    }
+
+    # CPC
+    cur_cpc = (_sum_metric(current, "ESTIMATED_EARNINGS") / cur_clicks) if cur_clicks else 0
+    prev_cpc = (_sum_metric(previous, "ESTIMATED_EARNINGS") / prev_clicks) if prev_clicks else 0
+    cpc_delta = cur_cpc - prev_cpc
+    cpc_pct = (cpc_delta / prev_cpc * 100) if prev_cpc else 0
+    result["CPC"] = {
+        "current": round(cur_cpc, 4),
+        "previous": round(prev_cpc, 4),
+        "delta": round(cpc_delta, 4),
+        "change_pct": round(cpc_pct, 2),
+    }
+
     return result
 
 
@@ -51,11 +74,7 @@ def rank_contributors(
     metric: str = "ESTIMATED_EARNINGS",
     top_n: int = 10,
 ) -> list[dict]:
-    """Rank groups by their contribution to the overall metric change.
-
-    Groups by `group_key` (e.g. COUNTRY_CODE, AD_UNIT_NAME).
-    Returns top N contributors sorted by absolute delta.
-    """
+    """Rank groups by their contribution to the overall metric change."""
     def _group_sum(data, key, metric_key):
         groups = defaultdict(float)
         for r in data:
@@ -84,7 +103,6 @@ def rank_contributors(
             "share_pct": round(share, 2),
         })
 
-    # Sort by absolute delta descending
     contributors.sort(key=lambda x: abs(x["delta"]), reverse=True)
     return contributors[:top_n]
 
@@ -95,10 +113,7 @@ def detect_anomalies(
     window: int = 7,
     threshold: float = 2.0,
 ) -> list[dict]:
-    """Detect days with anomalous metric values.
-
-    Uses rolling mean ± threshold * stdev over `window` days.
-    """
+    """Detect days with anomalous metric values."""
     values = [(r.get("DATE", ""), float(r.get(metric, 0))) for r in daily_data]
     if len(values) < window + 1:
         return []
@@ -135,9 +150,11 @@ def build_analysis_bundle(
     by_country_previous: list[dict],
     by_ad_unit_current: list[dict],
     by_ad_unit_previous: list[dict],
+    by_platform: list[dict] = None,
+    by_ad_format: list[dict] = None,
 ) -> dict:
     """Build complete analysis bundle from all data sources."""
-    return {
+    bundle = {
         "period_comparison": compare_periods(daily_current, daily_previous),
         "country_contributors": rank_contributors(
             by_country_current, by_country_previous, "COUNTRY_CODE"
@@ -153,3 +170,10 @@ def build_analysis_bundle(
             "total_ad_units": len(set(r.get("AD_UNIT_NAME", "") for r in by_ad_unit_current)),
         },
     }
+
+    if by_platform:
+        bundle["by_platform"] = by_platform
+    if by_ad_format:
+        bundle["by_ad_format"] = by_ad_format
+
+    return bundle

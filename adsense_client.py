@@ -11,11 +11,7 @@ def _parse_date(d: str | date) -> dict:
 
 
 def _parse_response(response: dict) -> list[dict]:
-    """Parse AdSense API response into list of dicts.
-
-    API returns: {headers: [{name, type}], rows: [{cells: [{value}]}]}
-    We zip headers with cell values.
-    """
+    """Parse AdSense API response into list of dicts."""
     headers = [h["name"] for h in response.get("headers", [])]
     header_types = {h["name"]: h.get("type", "") for h in response.get("headers", [])}
     rows = []
@@ -25,7 +21,6 @@ def _parse_response(response: dict) -> list[dict]:
         record = {}
         for i, header in enumerate(headers):
             val = cells[i]["value"] if i < len(cells) else ""
-            # Convert numeric types
             htype = header_types.get(header, "")
             if htype in ("METRIC_CURRENCY", "METRIC_DECIMAL", "METRIC_RATIO"):
                 try:
@@ -78,18 +73,20 @@ def fetch_report(
 
 # --- Convenience wrappers ---
 
-_DEFAULT_METRICS = [
+_DAILY_METRICS = [
     "ESTIMATED_EARNINGS",
     "PAGE_VIEWS",
     "CLICKS",
     "IMPRESSIONS",
     "PAGE_VIEWS_RPM",
+    "PAGE_VIEWS_CTR",
+    "COST_PER_CLICK",
 ]
 
 
 def fetch_daily_revenue(service, account_id: str, start: str, end: str) -> list[dict]:
-    """Fetch daily revenue breakdown."""
-    return fetch_report(service, account_id, start, end, ["DATE"], _DEFAULT_METRICS)
+    """Fetch daily revenue with extended metrics."""
+    return fetch_report(service, account_id, start, end, ["DATE"], _DAILY_METRICS)
 
 
 def fetch_by_country(service, account_id: str, start: str, end: str) -> list[dict]:
@@ -97,7 +94,7 @@ def fetch_by_country(service, account_id: str, start: str, end: str) -> list[dic
     return fetch_report(
         service, account_id, start, end,
         ["COUNTRY_CODE"],
-        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM"],
     )
 
 
@@ -106,7 +103,36 @@ def fetch_by_ad_unit(service, account_id: str, start: str, end: str) -> list[dic
     return fetch_report(
         service, account_id, start, end,
         ["AD_UNIT_NAME"],
-        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM",
+         "PAGE_VIEWS_CTR", "COST_PER_CLICK"],
+    )
+
+
+def fetch_by_platform(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by device platform."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["PLATFORM_TYPE_NAME"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_CTR"],
+    )
+
+
+def fetch_by_ad_format(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by ad format (in-page, anchor, vignette)."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["AD_FORMAT_NAME"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_CTR"],
+    )
+
+
+def fetch_by_month(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch monthly aggregated data."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["MONTH"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM",
+         "PAGE_VIEWS_CTR", "COST_PER_CLICK"],
     )
 
 
