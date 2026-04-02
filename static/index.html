@@ -338,6 +338,78 @@
       </div>
     </div>
 
+    <!-- Domain Analysis -->
+    <div class="section-title" id="domainSection" style="display:none;"><span class="section-icon">&#127760;</span> Domain Analysis</div>
+    <div class="chart-row" id="domainRow" style="display:none;">
+      <div class="ccard">
+        <div class="ccard-title">Revenue by Domain</div>
+        <canvas id="domainChart" height="200"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">Domain Detail</div>
+        <div style="max-height:340px;overflow-y:auto;">
+          <table class="ctable" id="domainTable">
+            <thead><tr><th>Domain</th><th class="num">Revenue</th><th class="num">Views</th><th class="num">Clicks</th><th class="num">RPM</th><th class="num">Change</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ad Size Analysis -->
+    <div class="section-title" id="adSizeSection" style="display:none;"><span class="section-icon">&#128207;</span> Ad Size Analysis</div>
+    <div class="chart-row" id="adSizeRow" style="display:none;">
+      <div class="ccard">
+        <div class="ccard-title">Revenue by Ad Size</div>
+        <canvas id="adSizeChart" height="200"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">Ad Size Detail</div>
+        <div style="max-height:340px;overflow-y:auto;">
+          <table class="ctable" id="adSizeTable">
+            <thead><tr><th>Size</th><th class="num">Revenue</th><th class="num">Impressions</th><th class="num">Clicks</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">Change</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buyer Network Analysis -->
+    <div class="section-title" id="buyerSection" style="display:none;"><span class="section-icon">&#128176;</span> Buyer Network Analysis</div>
+    <div class="chart-row" id="buyerRow" style="display:none;">
+      <div class="ccard">
+        <div class="ccard-title">Revenue by Buyer Network</div>
+        <canvas id="buyerChart" height="200"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">Buyer Network Detail</div>
+        <div style="max-height:340px;overflow-y:auto;">
+          <table class="ctable" id="buyerTable">
+            <thead><tr><th>Network</th><th class="num">Revenue</th><th class="num">Impressions</th><th class="num">Clicks</th><th class="num">Change</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Channel Analysis -->
+    <div class="section-title" id="channelSection" style="display:none;"><span class="section-icon">&#128218;</span> Custom Channel Analysis</div>
+    <div class="chart-row" id="channelRow" style="display:none;">
+      <div class="ccard">
+        <div class="ccard-title">Revenue by Channel</div>
+        <canvas id="channelChart" height="200"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">Channel Detail</div>
+        <div style="max-height:340px;overflow-y:auto;">
+          <table class="ctable" id="channelTable">
+            <thead><tr><th>Channel</th><th class="num">Revenue</th><th class="num">Views</th><th class="num">Clicks</th><th class="num">RPM</th><th class="num">Change</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- AI Report -->
     <div class="section-title"><span class="section-icon">&#129302;</span> AI Insight Report</div>
     <div class="report-card" id="reportCard" style="display:none;">
@@ -449,6 +521,10 @@
       renderAdUnitChart();
       renderCountryTable();
       renderAdUnitTable();
+      renderDomainSection();
+      renderAdSizeSection();
+      renderBuyerSection();
+      renderChannelSection();
       renderReport();
       renderAnomalies();
     }
@@ -746,6 +822,74 @@
       if(!r){$('reportCard').style.display='none';return;}
       $('reportCard').style.display='block';
       $('reportBody').innerHTML=r.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    }
+
+    // --- Domain Analysis ---
+    function renderDomainSection() {
+      const data=dashData.by_domain||[];
+      const contribs=dashData.analysis?.domain_contributors||[];
+      if(!data.length){$('domainSection').style.display='none';$('domainRow').style.display='none';return;}
+      $('domainSection').style.display='';$('domainRow').style.display='';
+      // Doughnut
+      destroyChart('domain');
+      const sorted=[...data].sort((a,b)=>(b.ESTIMATED_EARNINGS||0)-(a.ESTIMATED_EARNINGS||0));
+      const top=sorted.slice(0,8);
+      charts.domain=new Chart($('domainChart'),{type:'doughnut',data:{labels:top.map(r=>r.OWNED_SITE_DOMAIN_NAME||'Unknown'),datasets:[{data:top.map(r=>r.ESTIMATED_EARNINGS||0),backgroundColor:COLORS}]},options:pieOpts()});
+      // Table
+      const tbody=document.querySelector('#domainTable tbody');
+      tbody.innerHTML=contribs.map(r=>{
+        const cls=r.change_pct>=0?'up':'down';const sign=r.change_pct>=0?'+':'';
+        return `<tr><td>${r.name}</td><td class="num">$${r.current.toFixed(2)}</td><td class="num">${Math.round(r.previous).toLocaleString()}</td><td class="num">${Math.round(r.delta)}</td><td class="num">$${(r.current&&r.previous?(r.current/1*1000).toFixed(2):'0.00')}</td><td class="num"><span class="change-badge ${cls}">${sign}${r.change_pct.toFixed(1)}%</span></td></tr>`;
+      }).join('');
+    }
+
+    // --- Ad Size Analysis ---
+    function renderAdSizeSection() {
+      const data=dashData.by_ad_size||[];
+      const contribs=dashData.analysis?.ad_size_contributors||[];
+      if(!data.length){$('adSizeSection').style.display='none';$('adSizeRow').style.display='none';return;}
+      $('adSizeSection').style.display='';$('adSizeRow').style.display='';
+      destroyChart('adSize');
+      const sorted=[...data].sort((a,b)=>(b.ESTIMATED_EARNINGS||0)-(a.ESTIMATED_EARNINGS||0));
+      charts.adSize=new Chart($('adSizeChart'),{type:'bar',data:{labels:sorted.map(r=>r.AD_UNIT_SIZE_NAME||'Unknown'),datasets:[{label:'Revenue',data:sorted.map(r=>r.ESTIMATED_EARNINGS||0),backgroundColor:COLORS}]},options:{...chartOpts('$',v=>'$'+v.toFixed(0)),indexAxis:'y',plugins:{legend:{display:false}}}});
+      const tbody=document.querySelector('#adSizeTable tbody');
+      tbody.innerHTML=contribs.map(r=>{
+        const cls=r.change_pct>=0?'up':'down';const sign=r.change_pct>=0?'+':'';
+        return `<tr><td>${r.name}</td><td class="num">$${r.current.toFixed(2)}</td><td class="num">${Math.round(r.previous).toLocaleString()}</td><td class="num">${Math.round(r.delta)}</td><td class="num">${r.share_pct.toFixed(1)}%</td><td class="num">$${(r.delta/Math.max(r.previous,1)).toFixed(4)}</td><td class="num"><span class="change-badge ${cls}">${sign}${r.change_pct.toFixed(1)}%</span></td></tr>`;
+      }).join('');
+    }
+
+    // --- Buyer Network Analysis ---
+    function renderBuyerSection() {
+      const data=dashData.by_buyer_network||[];
+      const contribs=dashData.analysis?.buyer_network_contributors||[];
+      if(!data.length){$('buyerSection').style.display='none';$('buyerRow').style.display='none';return;}
+      $('buyerSection').style.display='';$('buyerRow').style.display='';
+      destroyChart('buyer');
+      const sorted=[...data].sort((a,b)=>(b.ESTIMATED_EARNINGS||0)-(a.ESTIMATED_EARNINGS||0));
+      const top=sorted.slice(0,10);
+      charts.buyer=new Chart($('buyerChart'),{type:'doughnut',data:{labels:top.map(r=>r.BUYER_NETWORK_NAME||'Unknown'),datasets:[{data:top.map(r=>r.ESTIMATED_EARNINGS||0),backgroundColor:COLORS}]},options:pieOpts()});
+      const tbody=document.querySelector('#buyerTable tbody');
+      tbody.innerHTML=contribs.map(r=>{
+        const cls=r.change_pct>=0?'up':'down';const sign=r.change_pct>=0?'+':'';
+        return `<tr><td>${r.name}</td><td class="num">$${r.current.toFixed(2)}</td><td class="num">${Math.round(r.previous).toLocaleString()}</td><td class="num">${Math.round(r.delta)}</td><td class="num"><span class="change-badge ${cls}">${sign}${r.change_pct.toFixed(1)}%</span></td></tr>`;
+      }).join('');
+    }
+
+    // --- Custom Channel Analysis ---
+    function renderChannelSection() {
+      const data=dashData.by_custom_channel||[];
+      const contribs=dashData.analysis?.custom_channel_contributors||[];
+      if(!data.length){$('channelSection').style.display='none';$('channelRow').style.display='none';return;}
+      $('channelSection').style.display='';$('channelRow').style.display='';
+      destroyChart('channel');
+      const sorted=[...data].sort((a,b)=>(b.ESTIMATED_EARNINGS||0)-(a.ESTIMATED_EARNINGS||0));
+      charts.channel=new Chart($('channelChart'),{type:'bar',data:{labels:sorted.map(r=>r.CUSTOM_CHANNEL_NAME||'Unknown'),datasets:[{label:'Revenue',data:sorted.map(r=>r.ESTIMATED_EARNINGS||0),backgroundColor:COLORS}]},options:{...chartOpts('$',v=>'$'+v.toFixed(0)),plugins:{legend:{display:false}}}});
+      const tbody=document.querySelector('#channelTable tbody');
+      tbody.innerHTML=contribs.map(r=>{
+        const cls=r.change_pct>=0?'up':'down';const sign=r.change_pct>=0?'+':'';
+        return `<tr><td>${r.name}</td><td class="num">$${r.current.toFixed(2)}</td><td class="num">${Math.round(r.previous).toLocaleString()}</td><td class="num">${Math.round(r.delta)}</td><td class="num">$${(r.current&&r.previous?(r.current/1*1000).toFixed(2):'0.00')}</td><td class="num"><span class="change-badge ${cls}">${sign}${r.change_pct.toFixed(1)}%</span></td></tr>`;
+      }).join('');
     }
 
     // --- Anomalies ---

@@ -217,6 +217,14 @@ def build_analysis_bundle(
     by_platform: list[dict] = None,
     by_ad_format: list[dict] = None,
     prev_by_ad_format: list[dict] = None,
+    by_domain: list[dict] = None,
+    prev_by_domain: list[dict] = None,
+    by_ad_size: list[dict] = None,
+    prev_by_ad_size: list[dict] = None,
+    by_buyer_network: list[dict] = None,
+    prev_by_buyer_network: list[dict] = None,
+    by_custom_channel: list[dict] = None,
+    prev_by_custom_channel: list[dict] = None,
 ) -> dict:
     """Build complete analysis bundle from all data sources."""
     bundle = {
@@ -241,5 +249,21 @@ def build_analysis_bundle(
     if by_ad_format:
         bundle["by_ad_format"] = by_ad_format
         bundle["ad_format_analysis"] = analyze_ad_formats(by_ad_format, prev_by_ad_format)
+    if by_domain:
+        bundle["domain_contributors"] = rank_contributors(
+            by_domain, prev_by_domain or [], "OWNED_SITE_DOMAIN_NAME"
+        )
+    if by_ad_size:
+        bundle["ad_size_contributors"] = rank_contributors(
+            by_ad_size, prev_by_ad_size or [], "AD_UNIT_SIZE_NAME"
+        )
+    if by_buyer_network:
+        bundle["buyer_network_contributors"] = rank_contributors(
+            by_buyer_network, prev_by_buyer_network or [], "BUYER_NETWORK_NAME"
+        )
+    if by_custom_channel:
+        bundle["custom_channel_contributors"] = rank_contributors(
+            by_custom_channel, prev_by_custom_channel or [], "CUSTOM_CHANNEL_NAME"
+        )
 
     return bundle

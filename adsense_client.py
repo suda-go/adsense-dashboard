@@ -146,6 +146,42 @@ def fetch_by_month(service, account_id: str, start: str, end: str) -> list[dict]
     )
 
 
+def fetch_by_domain(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by site domain."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["OWNED_SITE_DOMAIN_NAME"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM"],
+    )
+
+
+def fetch_by_ad_size(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by ad unit size."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["AD_UNIT_SIZE_NAME"],
+        ["ESTIMATED_EARNINGS", "IMPRESSIONS", "CLICKS", "PAGE_VIEWS_CTR", "COST_PER_CLICK"],
+    )
+
+
+def fetch_by_buyer_network(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by buyer network."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["BUYER_NETWORK_NAME"],
+        ["ESTIMATED_EARNINGS", "IMPRESSIONS", "CLICKS"],
+    )
+
+
+def fetch_by_custom_channel(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch revenue breakdown by custom channel."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["CUSTOM_CHANNEL_NAME"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_RPM"],
+    )
+
+
 def list_accounts(service) -> list[dict]:
     """List all AdSense accounts accessible to the authenticated user."""
     response = service.accounts().list().execute()

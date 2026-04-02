@@ -194,6 +194,22 @@ def _dashboard_inner(start, end, compare):
         service, account_id, start_str, end_str,
         adsense_client.fetch_ad_format_daily, "ad_format_daily",
     )
+    by_domain = _fetch_with_cache(
+        service, account_id, start_str, end_str,
+        adsense_client.fetch_by_domain, "domain",
+    )
+    by_ad_size = _fetch_with_cache(
+        service, account_id, start_str, end_str,
+        adsense_client.fetch_by_ad_size, "ad_size",
+    )
+    by_buyer_network = _fetch_with_cache(
+        service, account_id, start_str, end_str,
+        adsense_client.fetch_by_buyer_network, "buyer_network",
+    )
+    by_custom_channel = _fetch_with_cache(
+        service, account_id, start_str, end_str,
+        adsense_client.fetch_by_custom_channel, "custom_channel",
+    )
 
     result = {
         "period": {"start": start_str, "end": end_str, "days": period_days},
@@ -203,6 +219,10 @@ def _dashboard_inner(start, end, compare):
         "by_platform": by_platform,
         "by_ad_format": by_ad_format,
         "ad_format_daily": ad_format_daily,
+        "by_domain": by_domain,
+        "by_ad_size": by_ad_size,
+        "by_buyer_network": by_buyer_network,
+        "by_custom_channel": by_custom_channel,
     }
 
     if compare:
@@ -227,6 +247,22 @@ def _dashboard_inner(start, end, compare):
             service, account_id, prev_start_str, prev_end_str,
             adsense_client.fetch_by_ad_format, "ad_format",
         )
+        prev_by_domain = _fetch_with_cache(
+            service, account_id, prev_start_str, prev_end_str,
+            adsense_client.fetch_by_domain, "domain",
+        )
+        prev_by_ad_size = _fetch_with_cache(
+            service, account_id, prev_start_str, prev_end_str,
+            adsense_client.fetch_by_ad_size, "ad_size",
+        )
+        prev_by_buyer_network = _fetch_with_cache(
+            service, account_id, prev_start_str, prev_end_str,
+            adsense_client.fetch_by_buyer_network, "buyer_network",
+        )
+        prev_by_custom_channel = _fetch_with_cache(
+            service, account_id, prev_start_str, prev_end_str,
+            adsense_client.fetch_by_custom_channel, "custom_channel",
+        )
 
         result["previous_period"] = {
             "start": prev_start_str,
@@ -241,6 +277,14 @@ def _dashboard_inner(start, end, compare):
             by_platform=by_platform,
             by_ad_format=by_ad_format,
             prev_by_ad_format=prev_by_ad_format,
+            by_domain=by_domain,
+            prev_by_domain=prev_by_domain,
+            by_ad_size=by_ad_size,
+            prev_by_ad_size=prev_by_ad_size,
+            by_buyer_network=by_buyer_network,
+            prev_by_buyer_network=prev_by_buyer_network,
+            by_custom_channel=by_custom_channel,
+            prev_by_custom_channel=prev_by_custom_channel,
         )
         result["analysis"] = bundle
 
