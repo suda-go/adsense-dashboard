@@ -190,6 +190,10 @@ def _dashboard_inner(start, end, compare):
         service, account_id, start_str, end_str,
         adsense_client.fetch_by_ad_format, "ad_format",
     )
+    ad_format_daily = _fetch_with_cache(
+        service, account_id, start_str, end_str,
+        adsense_client.fetch_ad_format_daily, "ad_format_daily",
+    )
 
     result = {
         "period": {"start": start_str, "end": end_str, "days": period_days},
@@ -198,6 +202,7 @@ def _dashboard_inner(start, end, compare):
         "by_ad_unit": by_ad_unit,
         "by_platform": by_platform,
         "by_ad_format": by_ad_format,
+        "ad_format_daily": ad_format_daily,
     }
 
     if compare:
@@ -218,6 +223,10 @@ def _dashboard_inner(start, end, compare):
             service, account_id, prev_start_str, prev_end_str,
             adsense_client.fetch_by_ad_unit, "ad_unit",
         )
+        prev_by_ad_format = _fetch_with_cache(
+            service, account_id, prev_start_str, prev_end_str,
+            adsense_client.fetch_by_ad_format, "ad_format",
+        )
 
         result["previous_period"] = {
             "start": prev_start_str,
@@ -231,6 +240,7 @@ def _dashboard_inner(start, end, compare):
             by_ad_unit, prev_by_ad_unit,
             by_platform=by_platform,
             by_ad_format=by_ad_format,
+            prev_by_ad_format=prev_by_ad_format,
         )
         result["analysis"] = bundle
 

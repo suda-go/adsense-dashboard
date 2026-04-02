@@ -143,6 +143,70 @@ def detect_anomalies(
     return anomalies
 
 
+def analyze_ad_formats(current: list[dict], previous: list[dict] = None) -> list[dict]:
+    """Analyze ad format performance with period comparison."""
+    def _group(data, key="AD_FORMAT_NAME"):
+        groups = defaultdict(lambda: defaultdict(float))
+        for r in data:
+            name = r.get(key, "Unknown")
+            for m in ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS"]:
+                groups[name][m] += float(r.get(m, 0))
+            # Weighted averages for ratio metrics
+            groups[name]["_count"] += 1
+        return groups
+
+    cur = _group(current)
+    prev = _group(previous) if previous else {}
+    total_revenue = sum(g["ESTIMATED_EARNINGS"] for g in cur.values())
+
+    result = []
+    for name, metrics in cur.items():
+        rev = metrics["ESTIMATED_EARNINGS"]
+        clicks = metrics["CLICKS"]
+        views = metrics["PAGE_VIEWS"]
+        imps = metrics["IMPRESSIONS"]
+        ctr = (clicks / views * 100) if views else 0
+        cpc = (rev / clicks) if clicks else 0
+        rpm = (rev / views * 1000) if views else 0
+        share = (rev / total_revenue * 100) if total_revenue else 0
+
+        entry = {
+            "name": name,
+            "revenue": round(rev, 4),
+            "page_views": round(views),
+            "clicks": round(clicks),
+            "impressions": round(imps),
+            "ctr": round(ctr, 4),
+            "cpc": round(cpc, 4),
+            "rpm": round(rpm, 4),
+            "share_pct": round(share, 2),
+        }
+
+        if prev and name in prev:
+            prev_rev = prev[name]["ESTIMATED_EARNINGS"]
+            prev_clicks = prev[name]["CLICKS"]
+            prev_views = prev[name]["PAGE_VIEWS"]
+            delta = rev - prev_rev
+            pct = (delta / prev_rev * 100) if prev_rev else 0
+            prev_ctr = (prev_clicks / prev_views * 100) if prev_views else 0
+            prev_cpc = (prev_rev / prev_clicks) if prev_clicks else 0
+            prev_rpm = (prev_rev / prev_views * 1000) if prev_views else 0
+            entry["prev_revenue"] = round(prev_rev, 4)
+            entry["revenue_change_pct"] = round(pct, 2)
+            entry["revenue_delta"] = round(delta, 4)
+            entry["prev_ctr"] = round(prev_ctr, 4)
+            entry["ctr_change"] = round(ctr - prev_ctr, 4)
+            entry["prev_cpc"] = round(prev_cpc, 4)
+            entry["cpc_change_pct"] = round(((cpc - prev_cpc) / prev_cpc * 100) if prev_cpc else 0, 2)
+            entry["prev_rpm"] = round(prev_rpm, 4)
+            entry["rpm_change_pct"] = round(((rpm - prev_rpm) / prev_rpm * 100) if prev_rpm else 0, 2)
+
+        result.append(entry)
+
+    result.sort(key=lambda x: x["revenue"], reverse=True)
+    return result
+
+
 def build_analysis_bundle(
     daily_current: list[dict],
     daily_previous: list[dict],
@@ -152,6 +216,7 @@ def build_analysis_bundle(
     by_ad_unit_previous: list[dict],
     by_platform: list[dict] = None,
     by_ad_format: list[dict] = None,
+    prev_by_ad_format: list[dict] = None,
 ) -> dict:
     """Build complete analysis bundle from all data sources."""
     bundle = {
@@ -175,5 +240,6 @@ def build_analysis_bundle(
         bundle["by_platform"] = by_platform
     if by_ad_format:
         bundle["by_ad_format"] = by_ad_format
+        bundle["ad_format_analysis"] = analyze_ad_formats(by_ad_format, prev_by_ad_format)
 
     return bundle

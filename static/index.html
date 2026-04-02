@@ -272,6 +272,41 @@
       </div>
     </div>
 
+    <!-- Ad Format Deep Dive -->
+    <div class="section-title"><span class="section-icon">&#127912;</span> Ad Format Analysis</div>
+    <div class="chart-row">
+      <div class="ccard chart-full">
+        <div class="ccard-title">Ad Format Revenue Trend (Daily)</div>
+        <canvas id="adFormatTrendChart" height="100"></canvas>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="ccard">
+        <div class="ccard-title">Ad Format Impressions Share</div>
+        <canvas id="adFormatImpChart" height="180"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">Ad Format CTR Comparison</div>
+        <canvas id="adFormatCTRChart" height="180"></canvas>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="ccard chart-full">
+        <div class="ccard-title">Ad Format Performance Detail</div>
+        <div style="overflow-x:auto;">
+          <table class="ctable" id="adFormatTable">
+            <thead><tr>
+              <th>Format</th><th class="num">Revenue</th><th class="num">Share</th>
+              <th class="num">Views</th><th class="num">Clicks</th>
+              <th class="num">CTR</th><th class="num">CPC</th><th class="num">RPM</th>
+              <th class="num">Rev Change</th><th class="num">CTR Change</th><th class="num">RPM Change</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Ad Units + Country table -->
     <div class="section-title"><span class="section-icon">&#128203;</span> Detailed Rankings</div>
     <div class="chart-row">
@@ -407,6 +442,10 @@
       renderPlatformChart();
       renderAdFormatChart();
       renderCountryPieChart();
+      renderAdFormatTrend();
+      renderAdFormatImpChart();
+      renderAdFormatCTRChart();
+      renderAdFormatTable();
       renderAdUnitChart();
       renderCountryTable();
       renderAdUnitTable();
@@ -532,6 +571,117 @@
         data:{labels,datasets:[{data:vals,backgroundColor:COLORS.slice(0,labels.length),borderWidth:0}]},
         options:pieOpts()
       });
+    }
+
+    // --- Ad Format Revenue Trend (stacked area) ---
+    function renderAdFormatTrend() {
+      const raw=dashData.ad_format_daily||[];
+      destroyChart('adFormatTrend');
+      if(!raw.length) return;
+      // Group by format
+      const formats=new Set();
+      const byDate={};
+      raw.forEach(r=>{
+        const d=r.DATE,f=r.AD_FORMAT_NAME||'Unknown';
+        formats.add(f);
+        if(!byDate[d])byDate[d]={};
+        byDate[d][f]=(byDate[d][f]||0)+(r.ESTIMATED_EARNINGS||0);
+      });
+      const dates=Object.keys(byDate).sort();
+      const fmtArr=[...formats];
+      const datasets=fmtArr.map((f,i)=>({
+        label:f,
+        data:dates.map(d=>byDate[d][f]||0),
+        borderColor:COLORS[i%COLORS.length],
+        backgroundColor:COLORS[i%COLORS.length]+'33',
+        fill:true,tension:.3,pointRadius:0,
+      }));
+      charts.adFormatTrend=new Chart($('adFormatTrendChart'),{
+        type:'line',
+        data:{labels:dates,datasets},
+        options:{
+          responsive:true,
+          plugins:{legend:{labels:{color:'#8888a0',font:{size:11}}},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>ctx.dataset.label+': $'+ctx.parsed.y.toFixed(2)}}},
+          scales:{
+            x:{stacked:true,ticks:{color:'#8888a0',font:{size:10},maxRotation:45},grid:{color:'rgba(42,42,74,.3)'}},
+            y:{stacked:true,ticks:{color:'#8888a0',callback:v=>'$'+v.toFixed(0)},grid:{color:'rgba(42,42,74,.3)'}}
+          }
+        }
+      });
+    }
+
+    // --- Ad Format Impressions Bar ---
+    function renderAdFormatImpChart() {
+      const data=dashData.by_ad_format||[];
+      destroyChart('adFormatImp');
+      if(!data.length) return;
+      const sorted=[...data].sort((a,b)=>(b.IMPRESSIONS||0)-(a.IMPRESSIONS||0));
+      charts.adFormatImp=new Chart($('adFormatImpChart'),{
+        type:'bar',
+        data:{
+          labels:sorted.map(d=>d.AD_FORMAT_NAME||'Unknown'),
+          datasets:[{label:'Impressions',data:sorted.map(d=>d.IMPRESSIONS||0),backgroundColor:COLORS.slice(0,sorted.length),borderRadius:4}]
+        },
+        options:{
+          responsive:true,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y.toLocaleString()+' impressions'}}},
+          scales:{
+            x:{ticks:{color:'#8888a0',font:{size:11}},grid:{display:false}},
+            y:{ticks:{color:'#8888a0',callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(42,42,74,.3)'}}
+          }
+        }
+      });
+    }
+
+    // --- Ad Format CTR Comparison Bar ---
+    function renderAdFormatCTRChart() {
+      const analysis=dashData.analysis?.ad_format_analysis||[];
+      destroyChart('adFormatCTR');
+      if(!analysis.length) return;
+      const hasPrev=analysis.some(a=>a.prev_ctr!==undefined);
+      const datasets=[{label:'Current CTR',data:analysis.map(a=>a.ctr),backgroundColor:'rgba(108,92,231,.7)',borderRadius:4}];
+      if(hasPrev) datasets.push({label:'Previous CTR',data:analysis.map(a=>a.prev_ctr||0),backgroundColor:'rgba(99,110,114,.5)',borderRadius:4});
+      charts.adFormatCTR=new Chart($('adFormatCTRChart'),{
+        type:'bar',
+        data:{labels:analysis.map(a=>a.name),datasets},
+        options:{
+          responsive:true,
+          plugins:{legend:{labels:{color:'#8888a0',font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y.toFixed(2)+'%'}}},
+          scales:{
+            x:{ticks:{color:'#8888a0',font:{size:11}},grid:{display:false}},
+            y:{ticks:{color:'#8888a0',callback:v=>v.toFixed(1)+'%'},grid:{color:'rgba(42,42,74,.3)'}}
+          }
+        }
+      });
+    }
+
+    // --- Ad Format Detail Table ---
+    function renderAdFormatTable() {
+      const analysis=dashData.analysis?.ad_format_analysis||[];
+      const tbody=document.querySelector('#adFormatTable tbody');
+      if(!analysis.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text-dim)">No data</td></tr>';return;}
+      tbody.innerHTML=analysis.map(a=>{
+        const revCls=(a.revenue_change_pct||0)>=0?'up':'down';
+        const revSign=(a.revenue_change_pct||0)>=0?'+':'';
+        const ctrChg=a.ctr_change!==undefined?a.ctr_change:0;
+        const ctrCls=ctrChg>=0?'up':'down';
+        const ctrSign=ctrChg>=0?'+':'';
+        const rpmCls=(a.rpm_change_pct||0)>=0?'up':'down';
+        const rpmSign=(a.rpm_change_pct||0)>=0?'+':'';
+        return `<tr>
+          <td><strong>${a.name}</strong></td>
+          <td class="num">$${a.revenue.toFixed(2)}</td>
+          <td class="num">${a.share_pct.toFixed(1)}%</td>
+          <td class="num">${a.page_views.toLocaleString()}</td>
+          <td class="num">${a.clicks.toLocaleString()}</td>
+          <td class="num">${a.ctr.toFixed(2)}%</td>
+          <td class="num">$${a.cpc.toFixed(3)}</td>
+          <td class="num">$${a.rpm.toFixed(2)}</td>
+          <td class="num">${a.revenue_change_pct!==undefined?'<span class="change-badge '+revCls+'">'+revSign+a.revenue_change_pct.toFixed(1)+'%</span>':'-'}</td>
+          <td class="num">${a.ctr_change!==undefined?'<span class="change-badge '+ctrCls+'">'+ctrSign+ctrChg.toFixed(2)+'pp</span>':'-'}</td>
+          <td class="num">${a.rpm_change_pct!==undefined?'<span class="change-badge '+rpmCls+'">'+rpmSign+a.rpm_change_pct.toFixed(1)+'%</span>':'-'}</td>
+        </tr>`;
+      }).join('');
     }
 
     // --- Ad Unit Bar ---

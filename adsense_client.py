@@ -122,7 +122,17 @@ def fetch_by_ad_format(service, account_id: str, start: str, end: str) -> list[d
     return fetch_report(
         service, account_id, start, end,
         ["AD_FORMAT_NAME"],
-        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS", "PAGE_VIEWS_CTR"],
+        ["ESTIMATED_EARNINGS", "PAGE_VIEWS", "CLICKS", "IMPRESSIONS",
+         "PAGE_VIEWS_CTR", "COST_PER_CLICK", "PAGE_VIEWS_RPM"],
+    )
+
+
+def fetch_ad_format_daily(service, account_id: str, start: str, end: str) -> list[dict]:
+    """Fetch daily revenue breakdown by ad format for trend analysis."""
+    return fetch_report(
+        service, account_id, start, end,
+        ["DATE", "AD_FORMAT_NAME"],
+        ["ESTIMATED_EARNINGS", "CLICKS", "IMPRESSIONS"],
     )
 
 
