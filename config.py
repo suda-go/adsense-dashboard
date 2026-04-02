@@ -14,7 +14,11 @@ PORT = int(os.getenv("PORT", "8000"))
 # Google OAuth
 OAUTH_SCOPES = ["https://www.googleapis.com/auth/adsense.readonly"]
 OAUTH_REDIRECT_URI = f"{APP_URL}/oauth/callback"
-CREDENTIALS_DIR = BASE_DIR / "credentials"
+# Use /tmp for writable paths on serverless (Vercel filesystem is read-only)
+_is_serverless = os.getenv("VERCEL", "") != ""
+_writable_base = Path("/tmp") if _is_serverless else BASE_DIR
+
+CREDENTIALS_DIR = _writable_base / "credentials"
 CLIENT_SECRETS_PATH = CREDENTIALS_DIR / "client_secret.json"
 TOKEN_PATH = CREDENTIALS_DIR / "token.json"
 
@@ -49,6 +53,6 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "")
 
 # Cache
-DB_PATH = BASE_DIR / "adsense_cache.db"
+DB_PATH = _writable_base / "adsense_cache.db"
 REPORT_CACHE_TTL_SECONDS = 3600       # 1 hour
 ANALYSIS_CACHE_TTL_SECONDS = 21600    # 6 hours
