@@ -8,7 +8,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 
 # App URL (set via env for deployed environments)
-APP_URL = os.getenv("APP_URL", "http://localhost:8000").rstrip("/")
+APP_URL = os.getenv("APP_URL", "http://localhost:8000").strip().rstrip("/")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Google OAuth
