@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdSense Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #6C5CE7; --primary-light: #a29bfe; --primary-dark: #5241d0;
+      --accent: #00cec9; --green: #00b894; --red: #d63031; --orange: #e17055;
+      --bg: #0f0f1a; --bg-card: #1a1a2e; --bg-hover: #25254a;
+      --text: #e0e0e0; --text-dim: #8888a0; --text-bright: #fff;
+      --border: #2a2a4a; --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,15,26,.92); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 1400px; margin: 0 auto; padding: 0 24px;
+      height: 56px; display: flex; align-items: center; gap: 16px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 18px; font-weight: 800;
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .logo span {
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 4px;
+    }
+    .status-dot.on { background: var(--green); }
+    .status-dot.off { background: var(--red); }
+    .status-text { font-size: 12px; color: var(--text-dim); }
+
+    /* Auth Screen */
+    .auth-screen {
+      max-width: 500px; margin: 120px auto; text-align: center; padding: 0 24px;
+    }
+    .auth-icon { font-size: 64px; margin-bottom: 20px; }
+    .auth-title { font-size: 24px; font-weight: 800; color: var(--text-bright); margin-bottom: 10px; }
+    .auth-desc { color: var(--text-dim); font-size: 14px; margin-bottom: 8px; line-height: 1.6; }
+    .auth-btn {
+      display: inline-block; margin-top: 24px;
+      padding: 14px 36px; border-radius: 50px; border: none;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff; font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: .2s;
+    }
+    .auth-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .auth-btn:disabled { opacity: .4; cursor: default; transform: none; }
+    .auth-steps {
+      margin-top: 32px; text-align: left;
+      background: var(--bg-card); border-radius: var(--radius);
+      padding: 20px 24px; border: 1px solid var(--border);
+    }
+    .auth-steps h3 { font-size: 14px; color: var(--text-bright); margin-bottom: 12px; }
+    .auth-steps ol { padding-left: 20px; font-size: 13px; color: var(--text-dim); line-height: 2; }
+    .auth-steps code {
+      background: rgba(108,92,231,.15); color: var(--primary-light);
+      padding: 1px 6px; border-radius: 4px; font-size: 12px;
+    }
+
+    /* Dashboard container */
+    .dash { max-width: 1400px; margin: 0 auto; padding: 20px 24px 40px; display: none; }
+    .dash.show { display: block; }
+
+    /* Date picker bar */
+    .date-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .date-preset {
+      padding: 6px 16px; border-radius: 50px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text); font-size: 13px; cursor: pointer; transition: .2s;
+    }
+    .date-preset:hover { border-color: var(--primary); }
+    .date-preset.active {
+      background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600;
+    }
+    .date-input {
+      padding: 6px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-bright); font-size: 13px; outline: none;
+    }
+    .date-input:focus { border-color: var(--primary); }
+    .date-apply {
+      padding: 6px 16px; border-radius: 8px; border: none;
+      background: var(--primary); color: #fff; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .refresh-btn {
+      margin-left: auto; padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-dim); font-size: 13px; cursor: pointer; transition: .2s;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Summary cards */
+    .summary-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+      margin-bottom: 20px;
+    }
+    .scard {
+      background: var(--bg-card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 18px 20px;
+    }
+    .scard-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+    .scard-value { font-size: 26px; font-weight: 800; color: var(--text-bright); }
+    .scard-change {
+      font-size: 13px; font-weight: 600; margin-top: 4px;
+    }
+    .scard-change.up { color: var(--green); }
+    .scard-change.down { color: var(--red); }
+
+    /* Chart cards */
+    .chart-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+      margin-bottom: 20px;
+    }
+    .chart-full { grid-column: 1 / -1; }
+    .ccard {
+      background: var(--bg-card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 20px;
+    }
+    .ccard-title {
+      font-size: 15px; font-weight: 700; color: var(--text-bright);
+      margin-bottom: 14px;
+    }
+    .ccard canvas { width: 100% !important; }
+
+    /* Country table */
+    .ctable { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ctable th {
+      text-align: left; padding: 8px 10px; color: var(--text-dim);
+      border-bottom: 1px solid var(--border); font-weight: 600;
+    }
+    .ctable td {
+      padding: 8px 10px; border-bottom: 1px solid rgba(42,42,74,.4);
+      color: var(--text);
+    }
+    .ctable tr:hover td { background: rgba(108,92,231,.05); }
+    .ctable .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .change-badge {
+      display: inline-block; padding: 1px 8px; border-radius: 50px;
+      font-size: 11px; font-weight: 600;
+    }
+    .change-badge.up { background: rgba(0,184,148,.12); color: var(--green); }
+    .change-badge.down { background: rgba(214,48,49,.12); color: var(--red); }
+
+    /* AI Report */
+    .report-card {
+      background: var(--bg-card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 24px;
+      margin-bottom: 20px;
+    }
+    .report-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+    }
+    .report-badge {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff; font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 50px;
+    }
+    .report-title { font-size: 16px; font-weight: 700; color: var(--text-bright); }
+    .report-body {
+      font-size: 14px; line-height: 1.8; color: var(--text);
+      white-space: pre-wrap;
+    }
+    .report-body strong { color: var(--text-bright); }
+
+    /* Loading */
+    .loading-overlay {
+      position: fixed; inset: 0; background: rgba(15,15,26,.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 500; transition: .3s;
+    }
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--text-dim); font-size: 14px; }
+
+    /* Error toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--red); color: #fff; padding: 12px 24px;
+      border-radius: 8px; font-size: 13px; z-index: 600;
+      opacity: 0; transition: .3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .summary-row { grid-template-columns: repeat(2, 1fr); }
+      .chart-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .header-inner { padding: 0 14px; }
+      .dash { padding: 14px 14px 30px; }
+      .summary-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .scard { padding: 14px 16px; }
+      .scard-value { font-size: 20px; }
+      .date-bar { gap: 6px; }
+      .date-preset { padding: 5px 12px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">📊</div>
+        <span>AdSense Analytics</span>
+      </div>
+      <div class="header-right">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">检查中...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Auth Screen -->
+  <div id="authScreen" class="auth-screen" style="display:none;">
+    <div class="auth-icon">🔐</div>
+    <div class="auth-title">连接你的 Google AdSense</div>
+    <div class="auth-desc">授权后即可查看广告收入数据分析和 AI 洞察报告</div>
+    <button class="auth-btn" id="authBtn" onclick="doLogin()">连接 Google AdSense</button>
+    <div class="auth-steps">
+      <h3>首次使用前，请先完成以下准备：</h3>
+      <ol>
+        <li>前往 <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Google Cloud Console</a> 创建项目</li>
+        <li>启用 <strong>AdSense Management API</strong></li>
+        <li>配置 OAuth 同意屏幕，添加 scope: <code>adsense.readonly</code></li>
+        <li>创建 OAuth 凭证 (Web Application)，重定向 URI 填: <code>http://localhost:8000/oauth/callback</code></li>
+        <li>下载 JSON 并重命名为 <code>client_secret.json</code> 放入 <code>credentials/</code> 目录</li>
+        <li>点击上方按钮完成授权</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="dash">
+    <!-- Date picker -->
+    <div class="date-bar">
+      <button class="date-preset" data-days="7">近 7 天</button>
+      <button class="date-preset active" data-days="30">近 30 天</button>
+      <button class="date-preset" data-days="90">近 90 天</button>
+      <span style="color:var(--text-dim);font-size:13px;margin-left:8px;">自定义:</span>
+      <input type="date" class="date-input" id="startDate">
+      <span style="color:var(--text-dim);">~</span>
+      <input type="date" class="date-input" id="endDate">
+      <button class="date-apply" onclick="fetchCustomRange()">查询</button>
+      <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-row" id="summaryRow">
+      <div class="scard">
+        <div class="scard-label">总收入</div>
+        <div class="scard-value" id="sRevenue">--</div>
+        <div class="scard-change" id="sRevenueChg"></div>
+      </div>
+      <div class="scard">
+        <div class="scard-label">页面浏览</div>
+        <div class="scard-value" id="sPageviews">--</div>
+        <div class="scard-change" id="sPageviewsChg"></div>
+      </div>
+      <div class="scard">
+        <div class="scard-label">点击量</div>
+        <div class="scard-value" id="sClicks">--</div>
+        <div class="scard-change" id="sClicksChg"></div>
+      </div>
+      <div class="scard">
+        <div class="scard-label">RPM</div>
+        <div class="scard-value" id="sRPM">--</div>
+        <div class="scard-change" id="sRPMChg"></div>
+      </div>
+    </div>
+
+    <!-- Revenue trend chart -->
+    <div class="chart-row">
+      <div class="ccard chart-full">
+        <div class="ccard-title">收入趋势</div>
+        <canvas id="trendChart" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- Ad unit + Country -->
+    <div class="chart-row">
+      <div class="ccard">
+        <div class="ccard-title">广告位收入 TOP 10</div>
+        <canvas id="adUnitChart" height="200"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="ccard-title">国家/地区收入 TOP 15</div>
+        <div style="max-height:420px;overflow-y:auto;">
+          <table class="ctable" id="countryTable">
+            <thead><tr><th>国家</th><th class="num">收入</th><th class="num">占比</th><th class="num">环比</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Report -->
+    <div class="report-card" id="reportCard" style="display:none;">
+      <div class="report-header">
+        <span class="report-badge">AI</span>
+        <span class="report-title">智能分析报告</span>
+      </div>
+      <div class="report-body" id="reportBody"></div>
+    </div>
+
+    <!-- Anomalies -->
+    <div class="ccard" id="anomalyCard" style="display:none;margin-bottom:20px;">
+      <div class="ccard-title">异常检测</div>
+      <div id="anomalyList"></div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay hidden" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">加载中...</div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (() => {
+    // === State ===
+    let dashData = null;
+    let trendChartInst = null;
+    let adUnitChartInst = null;
+    let currentDays = 30;
+
+    const $ = id => document.getElementById(id);
+
+    // === Auth ===
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+        const dot = $('statusDot');
+        const txt = $('statusText');
+        if (data.authenticated) {
+          dot.className = 'status-dot on';
+          txt.textContent = '已连接' + (data.account_id ? ` (${data.account_id.replace('accounts/','')})`:'');
+          $('authScreen').style.display = 'none';
+          $('dashboard').classList.add('show');
+          fetchDashboard(currentDays);
+        } else {
+          dot.className = 'status-dot off';
+          txt.textContent = '未连接';
+          $('authScreen').style.display = 'block';
+          $('dashboard').classList.remove('show');
+        }
+      } catch (e) {
+        showToast('无法连接服务器');
+      }
+    }
+
+    window.doLogin = async function() {
+      const btn = $('authBtn');
+      btn.disabled = true; btn.textContent = '跳转中...';
+      try {
+        const res = await fetch('/api/auth/login');
+        const data = await res.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          showToast(data.detail || '获取授权链接失败');
+          btn.disabled = false; btn.textContent = '连接 Google AdSense';
+        }
+      } catch (e) {
+        showToast('请求失败: ' + e.message);
+        btn.disabled = false; btn.textContent = '连接 Google AdSense';
+      }
+    };
+
+    // === Fetch Dashboard ===
+    async function fetchDashboard(days) {
+      showLoading('正在拉取 AdSense 数据...');
+      const end = new Date(); end.setDate(end.getDate() - 1);
+      const start = new Date(end); start.setDate(start.getDate() - days + 1);
+      const startStr = fmt(start);
+      const endStr = fmt(end);
+      $('startDate').value = startStr;
+      $('endDate').value = endStr;
+      await loadDashboard(startStr, endStr);
+    }
+
+    window.fetchCustomRange = async function() {
+      const s = $('startDate').value;
+      const e = $('endDate').value;
+      if (!s || !e) return showToast('请选择日期范围');
+      document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+      await loadDashboard(s, e);
+    };
+
+    window.refreshData = () => fetchDashboard(currentDays);
+
+    async function loadDashboard(start, end) {
+      showLoading('正在拉取 AdSense 数据...');
+      try {
+        const res = await fetch(`/api/dashboard?start=${start}&end=${end}&compare=true`);
+        if (res.status === 401) {
+          hideLoading();
+          $('authScreen').style.display = 'block';
+          $('dashboard').classList.remove('show');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || '请求失败');
+        }
+        dashData = await res.json();
+        renderAll();
+      } catch (e) {
+        showToast('数据加载失败: ' + e.message);
+      }
+      hideLoading();
+    }
+
+    // === Render ===
+    function renderAll() {
+      if (!dashData) return;
+      renderSummary();
+      renderTrendChart();
+      renderAdUnitChart();
+      renderCountryTable();
+      renderReport();
+      renderAnomalies();
+    }
+
+    function renderSummary() {
+      const a = dashData.analysis?.period_comparison;
+      if (!a) return;
+      setSummaryCard('sRevenue', 'sRevenueChg', a.ESTIMATED_EARNINGS, '$');
+      setSummaryCard('sPageviews', 'sPageviewsChg', a.PAGE_VIEWS, '', true);
+      setSummaryCard('sClicks', 'sClicksChg', a.CLICKS, '', true);
+      setSummaryCard('sRPM', 'sRPMChg', a.RPM, '$');
+    }
+
+    function setSummaryCard(valId, chgId, data, prefix, isInt) {
+      if (!data) return;
+      const val = data.current;
+      $(valId).textContent = prefix + (isInt ? Math.round(val).toLocaleString() : val.toFixed(2));
+      const pct = data.change_pct;
+      const el = $(chgId);
+      el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% 环比';
+      el.className = 'scard-change ' + (pct >= 0 ? 'up' : 'down');
+    }
+
+    function renderTrendChart() {
+      const daily = dashData.daily || [];
+      const prevDaily = dashData.previous_period?.daily || [];
+      if (trendChartInst) trendChartInst.destroy();
+
+      const labels = daily.map(d => d.DATE);
+      const values = daily.map(d => d.ESTIMATED_EARNINGS || 0);
+      const prevValues = prevDaily.map(d => d.ESTIMATED_EARNINGS || 0);
+
+      // Pad previous to same length
+      while (prevValues.length < values.length) prevValues.unshift(0);
+
+      trendChartInst = new Chart($('trendChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '当前周期',
+              data: values,
+              borderColor: '#6C5CE7',
+              backgroundColor: 'rgba(108,92,231,.1)',
+              fill: true, tension: .3, pointRadius: 2,
+            },
+            {
+              label: '上一周期',
+              data: prevValues,
+              borderColor: '#636e72',
+              borderDash: [5, 5],
+              fill: false, tension: .3, pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: '#8888a0', font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => `$${ctx.parsed.y.toFixed(2)}` } },
+          },
+          scales: {
+            x: { ticks: { color: '#8888a0', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(42,42,74,.3)' } },
+            y: { ticks: { color: '#8888a0', callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(42,42,74,.3)' } },
+          },
+        },
+      });
+    }
+
+    function renderAdUnitChart() {
+      const units = (dashData.analysis?.ad_unit_contributors || []).slice(0, 10);
+      if (adUnitChartInst) adUnitChartInst.destroy();
+      if (!units.length) return;
+
+      adUnitChartInst = new Chart($('adUnitChart'), {
+        type: 'bar',
+        data: {
+          labels: units.map(u => u.name.length > 25 ? u.name.slice(0, 25) + '...' : u.name),
+          datasets: [{
+            label: '收入 ($)',
+            data: units.map(u => u.current),
+            backgroundColor: units.map((u, i) =>
+              u.delta >= 0 ? 'rgba(0,184,148,.7)' : 'rgba(214,48,49,.7)'
+            ),
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => `$${ctx.parsed.x.toFixed(2)} (${units[ctx.dataIndex]?.change_pct > 0 ? '+' : ''}${units[ctx.dataIndex]?.change_pct}%)` } },
+          },
+          scales: {
+            x: { ticks: { color: '#8888a0', callback: v => '$' + v }, grid: { color: 'rgba(42,42,74,.3)' } },
+            y: { ticks: { color: '#e0e0e0', font: { size: 11 } }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    function renderCountryTable() {
+      const countries = (dashData.analysis?.country_contributors || []).slice(0, 15);
+      const tbody = document.querySelector('#countryTable tbody');
+      tbody.innerHTML = countries.map(c => {
+        const chgClass = c.change_pct >= 0 ? 'up' : 'down';
+        const chgSign = c.change_pct >= 0 ? '+' : '';
+        return `<tr>
+          <td>${countryFlag(c.name)} ${c.name}</td>
+          <td class="num">$${c.current.toFixed(2)}</td>
+          <td class="num">${c.share_pct.toFixed(1)}%</td>
+          <td class="num"><span class="change-badge ${chgClass}">${chgSign}${c.change_pct.toFixed(1)}%</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderReport() {
+      const report = dashData.llm_report;
+      if (!report) { $('reportCard').style.display = 'none'; return; }
+      $('reportCard').style.display = 'block';
+      // Simple markdown-like rendering
+      $('reportBody').innerHTML = report
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function renderAnomalies() {
+      const anomalies = dashData.analysis?.anomalies || [];
+      if (!anomalies.length) { $('anomalyCard').style.display = 'none'; return; }
+      $('anomalyCard').style.display = 'block';
+      $('anomalyList').innerHTML = anomalies.map(a => {
+        const icon = a.direction === 'spike' ? '📈' : '📉';
+        const color = a.direction === 'spike' ? 'var(--green)' : 'var(--red)';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          ${icon} <strong style="color:${color}">${a.date}</strong>:
+          $${a.value.toFixed(2)}（均值 $${a.rolling_mean.toFixed(2)}，偏差 ${Math.abs(a.deviation).toFixed(1)}σ）
+        </div>`;
+      }).join('');
+    }
+
+    // === Helpers ===
+    function fmt(d) { return d.toISOString().split('T')[0]; }
+
+    function countryFlag(code) {
+      if (!code || code.length !== 2) return '';
+      return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+    }
+
+    function showLoading(text) {
+      $('loadingText').textContent = text || '加载中...';
+      $('loading').classList.remove('hidden');
+    }
+    function hideLoading() { $('loading').classList.add('hidden'); }
+
+    function showToast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 4000);
+    }
+
+    // === Date presets ===
+    document.querySelectorAll('.date-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentDays = parseInt(btn.dataset.days);
+        fetchDashboard(currentDays);
+      });
+    });
+
+    // === Init ===
+    checkAuth();
+  })();
+  </script>
+</body>
+</html>
