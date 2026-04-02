@@ -138,6 +138,16 @@ def dashboard(
     compare: bool = Query(default=True, description="Include period comparison"),
 ):
     """Main dashboard endpoint - returns all data for the dashboard."""
+    import traceback
+    try:
+        return _dashboard_inner(start, end, compare)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
+
+
+def _dashboard_inner(start, end, compare):
     creds = auth.load_credentials()
     if not creds:
         raise HTTPException(status_code=401, detail="未认证，请先连接 Google AdSense")
