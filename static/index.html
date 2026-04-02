@@ -237,6 +237,16 @@
       <div class="scard"><div class="scard-label"><span class="scard-label-icon">&#127760;</span> Countries</div><div class="scard-value" id="sCountries">--</div><div class="scard-change" id="sCountriesChg" style="color:var(--text-dim)"></div></div>
     </div>
 
+    <!-- AI Report (top of dashboard) -->
+    <div class="section-title"><span class="section-icon">&#129302;</span> AI Insight Report</div>
+    <div class="report-card" id="reportCard" style="display:none;">
+      <div class="report-header">
+        <span class="report-badge">AI</span>
+        <span class="report-title">Smart Analysis</span>
+      </div>
+      <div class="report-body" id="reportBody"></div>
+    </div>
+
     <!-- Revenue trend (full width) -->
     <div class="section-title"><span class="section-icon">&#128200;</span> Revenue Trend</div>
     <div class="chart-row">
@@ -408,16 +418,6 @@
           </table>
         </div>
       </div>
-    </div>
-
-    <!-- AI Report -->
-    <div class="section-title"><span class="section-icon">&#129302;</span> AI Insight Report</div>
-    <div class="report-card" id="reportCard" style="display:none;">
-      <div class="report-header">
-        <span class="report-badge">AI</span>
-        <span class="report-title">Smart Analysis</span>
-      </div>
-      <div class="report-body" id="reportBody"></div>
     </div>
 
     <!-- Anomalies -->
@@ -821,7 +821,19 @@
       const r=dashData.llm_report;
       if(!r){$('reportCard').style.display='none';return;}
       $('reportCard').style.display='block';
-      $('reportBody').innerHTML=r.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      // Simple markdown to HTML
+      let html=r
+        .replace(/^### (.*$)/gm,'<h4 style="color:var(--accent);margin:16px 0 8px;">$1</h4>')
+        .replace(/^## (.*$)/gm,'<h3 style="color:var(--accent);margin:20px 0 10px;">$1</h3>')
+        .replace(/^# (.*$)/gm,'<h2 style="color:var(--accent);margin:24px 0 12px;">$1</h2>')
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g,'<em>$1</em>')
+        .replace(/^- (.*$)/gm,'<li style="margin:4px 0;margin-left:20px;">$1</li>')
+        .replace(/(<li.*<\/li>\n?)+/g,'<ul style="list-style:disc;padding-left:8px;margin:8px 0;">$&</ul>')
+        .replace(/\n\n/g,'</p><p style="margin:8px 0;">')
+        .replace(/\n/g,'<br>');
+      html='<p style="margin:8px 0;">'+html+'</p>';
+      $('reportBody').innerHTML=html;
     }
 
     // --- Domain Analysis ---
