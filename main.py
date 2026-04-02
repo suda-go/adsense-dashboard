@@ -1,5 +1,6 @@
 """FastAPI application for AdSense Analytics Dashboard."""
 
+import os
 from datetime import date, timedelta
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
@@ -52,6 +53,20 @@ def auth_status():
             pass
 
     return {"authenticated": True, "account_id": account_id}
+
+
+@app.get("/api/auth/debug")
+def auth_debug():
+    """Debug: show OAuth config (remove after testing)."""
+    return {
+        "APP_URL": config.APP_URL,
+        "OAUTH_REDIRECT_URI": config.OAUTH_REDIRECT_URI,
+        "CLIENT_ID_PREFIX": config.GOOGLE_CLIENT_ID[:20] + "..." if config.GOOGLE_CLIENT_ID else "",
+        "HAS_CLIENT_SECRET": bool(config.GOOGLE_CLIENT_SECRET),
+        "CLIENT_SECRETS_PATH": str(config.CLIENT_SECRETS_PATH),
+        "SECRETS_FILE_EXISTS": config.CLIENT_SECRETS_PATH.exists(),
+        "VERCEL_ENV": os.getenv("VERCEL", ""),
+    }
 
 
 @app.get("/api/auth/login")
