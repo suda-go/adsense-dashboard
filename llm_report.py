@@ -14,16 +14,41 @@ def generate_insight_report(analysis_bundle: dict) -> str:
     if not config.ANTHROPIC_API_KEY:
         return _fallback_report(analysis_bundle)
 
-    prompt = f"""你是一位专业的广告收入数据分析师。请根据以下 Google AdSense 数据分析结果，撰写一份简洁的中文洞察报告（3-5段）。
+    prompt = f"""你是一位资深的广告变现数据分析师，擅长从多维数据中发现因果关系。请根据以下 Google AdSense 全维度数据，撰写一份深度中文分析报告。
 
-要求：
-1. 总体收入趋势和关键变化（具体数字）
-2. 表现最好和最差的广告位分析
-3. 地域（国家）维度的趋势变化
-4. 检测到的异常波动及可能原因
-5. 可执行的优化建议
+## 分析框架
 
-注意：使用具体数字，避免空泛描述。如果某维度变化超过20%，重点分析原因。
+### 1. 收入涨跌归因（必须回答"为什么涨/跌"）
+- 总收入变化的具体数字和百分比
+- **逐一交叉分析**以下维度，找出哪个维度是涨跌的主因：
+  - 广告位（Ad Unit）：哪个广告位贡献了最大涨幅/跌幅？
+  - 国家/地区：哪些国家的流量或收入变化最大？是否与季节/节假日相关？
+  - 广告格式（Format）：In-page / Anchor / Vignette 各自表现如何？格式切换是否影响了收入？
+  - 设备平台（Platform）：Desktop vs Mobile vs Tablet 的收入和 CTR 差异
+  - 域名（Domain）：哪个域名贡献最多？是否有某个域名异常？
+  - 广告尺寸（Ad Size）：哪种尺寸 RPM 最高？尺寸分布是否合理？
+  - 买方网络（Buyer Network）：哪些广告网络出价变化大？是否有网络退出/新增？
+  - 自定义渠道（Custom Channel）：渠道间表现差异及原因
+
+### 2. 关键指标联动分析
+- RPM 变化原因：是 CPC 变了还是 CTR 变了？
+- CTR 变化原因：是流量质量变了还是广告位置变了？
+- CPC 变化原因：是买方出价变了还是流量地域结构变了？
+
+### 3. 异常检测与风险
+- 任何偏离均值超过2个标准差的日期，分析可能原因
+- 是否存在流量作弊迹象（CTR异常高/低）
+- 收入与流量不匹配的情况
+
+### 4. 可执行优化建议（按优先级排序）
+- 基于数据给出3-5条具体可操作的建议
+- 每条建议说明预期收益
+
+## 格式要求
+- 使用 Markdown 格式，带标题和小标题
+- 所有结论必须附带具体数字
+- 变化超过20%的维度要重点标注和分析
+- 报告应为5-8段，覆盖所有维度
 
 数据：
 {json.dumps(analysis_bundle, indent=2, ensure_ascii=False)}"""
@@ -35,7 +60,7 @@ def generate_insight_report(analysis_bundle: dict) -> str:
         client = anthropic.Anthropic(**client_kwargs)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            max_tokens=4000,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text
@@ -94,6 +119,42 @@ def _fallback_report(bundle: dict) -> str:
         top = ad_units[0]
         lines.append(
             f"**收入变化最大的广告位**: {top['name']}，"
+            f"变化 ${top['delta']:+.2f}（{top['change_pct']:+.1f}%）\n"
+        )
+
+    # Domain
+    domains = bundle.get("domain_contributors", [])
+    if domains:
+        top = domains[0]
+        lines.append(
+            f"\n**收入变化最大的域名**: {top['name']}，"
+            f"变化 ${top['delta']:+.2f}（{top['change_pct']:+.1f}%），占比 {top['share_pct']:.1f}%\n"
+        )
+
+    # Ad Size
+    ad_sizes = bundle.get("ad_size_contributors", [])
+    if ad_sizes:
+        top = ad_sizes[0]
+        lines.append(
+            f"**收入变化最大的广告尺寸**: {top['name']}，"
+            f"变化 ${top['delta']:+.2f}（{top['change_pct']:+.1f}%）\n"
+        )
+
+    # Buyer Network
+    buyers = bundle.get("buyer_network_contributors", [])
+    if buyers:
+        top = buyers[0]
+        lines.append(
+            f"**收入变化最大的买方网络**: {top['name']}，"
+            f"变化 ${top['delta']:+.2f}（{top['change_pct']:+.1f}%）\n"
+        )
+
+    # Custom Channel
+    channels = bundle.get("custom_channel_contributors", [])
+    if channels:
+        top = channels[0]
+        lines.append(
+            f"**收入变化最大的渠道**: {top['name']}，"
             f"变化 ${top['delta']:+.2f}（{top['change_pct']:+.1f}%）\n"
         )
 
