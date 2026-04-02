@@ -72,11 +72,10 @@ def auth_debug():
 @app.get("/api/auth/login")
 def auth_login():
     """Start Google OAuth flow."""
-    config.ensure_client_secrets()
-    if not config.CLIENT_SECRETS_PATH.exists():
+    if not config.GOOGLE_CLIENT_ID or not config.GOOGLE_CLIENT_SECRET:
         raise HTTPException(
             status_code=400,
-            detail="请先配置 GOOGLE_CLIENT_ID 和 GOOGLE_CLIENT_SECRET 环境变量，或将 client_secret.json 放入 credentials/ 目录",
+            detail="请先配置 GOOGLE_CLIENT_ID 和 GOOGLE_CLIENT_SECRET 环境变量",
         )
     auth_url, state = auth.get_authorization_url()
     return {"auth_url": auth_url}

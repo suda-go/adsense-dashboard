@@ -18,11 +18,19 @@ import config
 _token_cache: dict | None = None
 
 
-def _flow_from_secrets() -> Flow:
-    """Create OAuth flow from client_secret.json."""
-    config.ensure_client_secrets()
-    return Flow.from_client_secrets_file(
-        str(config.CLIENT_SECRETS_PATH),
+def _create_flow() -> Flow:
+    """Create OAuth flow from config (no file dependency)."""
+    client_config = {
+        "web": {
+            "client_id": config.GOOGLE_CLIENT_ID,
+            "client_secret": config.GOOGLE_CLIENT_SECRET,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [config.OAUTH_REDIRECT_URI],
+        }
+    }
+    return Flow.from_client_config(
+        client_config,
         scopes=config.OAUTH_SCOPES,
         redirect_uri=config.OAUTH_REDIRECT_URI,
     )
@@ -30,7 +38,7 @@ def _flow_from_secrets() -> Flow:
 
 def get_authorization_url() -> tuple[str, str]:
     """Generate Google OAuth authorization URL."""
-    flow = _flow_from_secrets()
+    flow = _create_flow()
     auth_url, state = flow.authorization_url(
         access_type="offline",
         prompt="consent",
@@ -42,7 +50,7 @@ def get_authorization_url() -> tuple[str, str]:
 def exchange_code(code: str) -> Credentials:
     """Exchange authorization code for credentials and save token."""
     global _token_cache
-    flow = _flow_from_secrets()
+    flow = _create_flow()
     flow.fetch_token(code=code)
     creds = flow.credentials
 
